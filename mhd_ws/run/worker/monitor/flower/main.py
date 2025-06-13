@@ -9,9 +9,13 @@ from dependency_injector.wiring import Provide, inject
 from mhd_ws.application.services.interfaces.async_task.utils import (
     get_async_task_registry,
 )
-from mhd_ws.infrastructure.pub_sub.celery.celery_impl import CeleryAsyncTaskService
+from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
+    CeleryAsyncTaskService,
+)
 from mhd_ws.infrastructure.pub_sub.connection.redis import RedisConnectionProvider
-from mhd_ws.run.worker.monitor.flower.containers import Ws3MonitorApplicationContainer
+from mhd_ws.run.worker.monitor.flower.containers import (
+    Ws3MonitorApplicationContainer,
+)
 
 logger: Union[None, logging.Logger] = None
 

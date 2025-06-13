@@ -7,8 +7,12 @@ from mhd_ws.application.services.interfaces.async_task.async_task_executor impor
 from mhd_ws.application.services.interfaces.async_task.async_task_result import (
     AsyncTaskResult,
 )
-from mhd_ws.application.services.interfaces.async_task.conection import PubSubConnection
-from mhd_ws.domain.shared.async_task.async_task_description import AsyncTaskDescription
+from mhd_ws.application.services.interfaces.async_task.conection import (
+    PubSubConnection,
+)
+from mhd_ws.domain.shared.async_task.async_task_description import (
+    AsyncTaskDescription,
+)
 
 
 class IdGenerator:

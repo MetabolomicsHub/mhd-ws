@@ -14,8 +14,12 @@ from mhd_ws.domain.domain_services.configuration_generator import (
     create_config_from_dict,
 )
 from mhd_ws.infrastructure.cache.redis.redis_impl import RedisCacheImpl
-from mhd_ws.infrastructure.pub_sub.celery.celery_impl import CeleryAsyncTaskService
-from mhd_ws.presentation.rest_api.core.core_router import set_oauth2_redirect_endpoint
+from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
+    CeleryAsyncTaskService,
+)
+from mhd_ws.presentation.rest_api.core.core_router import (
+    set_oauth2_redirect_endpoint,
+)
 from mhd_ws.presentation.rest_api.core.models import ApiServerConfiguration
 
 from mhd_ws.run.config import ModuleConfiguration

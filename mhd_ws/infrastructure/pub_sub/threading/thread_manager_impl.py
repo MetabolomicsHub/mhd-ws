@@ -20,12 +20,16 @@ from mhd_ws.application.services.interfaces.async_task.async_task_service import
     AsyncTaskService,
     IdGenerator,
 )
-from mhd_ws.application.services.interfaces.async_task.conection import PubSubConnection
+from mhd_ws.application.services.interfaces.async_task.conection import (
+    PubSubConnection,
+)
 from mhd_ws.domain.exceptions.async_task import (
     AsyncTaskNotFoundError,
     AsyncTaskRemoteFailure,
 )
-from mhd_ws.domain.shared.async_task.async_task_description import AsyncTaskDescription
+from mhd_ws.domain.shared.async_task.async_task_description import (
+    AsyncTaskDescription,
+)
 
 logger = logging.getLogger()
 

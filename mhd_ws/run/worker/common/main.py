@@ -6,11 +6,13 @@ from typing import Any, Sequence, Union
 from celery.signals import setup_logging
 from dependency_injector.wiring import Provide, inject
 
-import mhd
+import mhd_ws
 from mhd_ws.application.services.interfaces.async_task.utils import (
     get_async_task_registry,
 )
-from mhd_ws.infrastructure.pub_sub.celery.celery_impl import CeleryAsyncTaskService
+from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
+    CeleryAsyncTaskService,
+)
 from mhd_ws.infrastructure.pub_sub.connection.redis import RedisConnectionProvider
 from mhd_ws.run.config_renderer import render_config_secrets
 from mhd_ws.run.module_utils import load_modules
@@ -49,7 +51,7 @@ def update_container(
         raise ValueError("Initial container is not defined")
     render_config_secrets(initial_container.config(), initial_container.secrets())
     initial_container.init_resources()
-    initial_container.wire(packages=[mhd.__name__])
+    initial_container.wire(packages=[mhd_ws.__name__])
 
     initial_container.wire(modules=[initialization.__name__])
     initial_container.wire(modules=[__name__, *async_task_modules, *injectable_modules])

@@ -1,6 +1,8 @@
 from dependency_injector import containers, providers
 
-from mhd_ws.application.services.interfaces.async_task.conection import PubSubConnection
+from mhd_ws.application.services.interfaces.async_task.conection import (
+    PubSubConnection,
+)
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 
 # from mhd_ws.infrastructure.persistence.db.mongodb.config import (

@@ -3,10 +3,10 @@ import os
 from pathlib import Path
 from typing import Any, Sequence, Union
 
+import mhd_model
 from dependency_injector.wiring import inject
 from pydantic import BaseModel
 
-import mhd
 from mhd_ws import application_root_path
 from mhd_ws.application.decorators.async_task import async_task
 
@@ -33,7 +33,7 @@ def find_injectable_modules() -> list[tuple[str, str]]:
 def find_decorated_modules(
     decorator_name: str, decorator_kwargs: Union[None, dict[str, ArgumentFilter]] = None
 ) -> list[tuple[str, str]]:
-    app_path = str(application_root_path / Path(mhd.__name__))
+    app_path = str(application_root_path / Path(mhd_model.__name__))
 
     result: Union[None, dict[str, Any]] = find_decorator_in_package(
         app_path,

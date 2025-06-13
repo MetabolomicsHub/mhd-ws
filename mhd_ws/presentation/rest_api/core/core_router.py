@@ -7,7 +7,10 @@ from fastapi.openapi import docs
 from fastapi.responses import RedirectResponse
 
 from mhd_ws import __version__
-from mhd_ws.presentation.rest_api.core.models import ApiServerConfiguration, Version
+from mhd_ws.presentation.rest_api.core.models import (
+    ApiServerConfiguration,
+    Version,
+)
 from mhd_ws.presentation.rest_api.core.responses import APIResponse
 
 logger = getLogger(__name__)

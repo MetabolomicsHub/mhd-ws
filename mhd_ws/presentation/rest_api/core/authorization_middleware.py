@@ -12,7 +12,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from mhd_ws.application.context.request_tracker import RequestTracker
 
-from mhd_ws.domain.entities.auth_user import AuthenticatedUser, UnauthenticatedUser
+from mhd_ws.domain.entities.auth_user import (
+    AuthenticatedUser,
+    UnauthenticatedUser,
+)
 from mhd_ws.domain.exceptions.auth import AuthenticationError, AuthorizationError
 from mhd_ws.presentation.rest_api.core.responses import APIErrorResponse
 
@@ -59,15 +62,15 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
             if user.is_authenticated:
                 access_request_message = f"User {user.user_detail.id_} requests {method} {route_path} from host/IP {client_host}."
                 # if resource_id:
-                    # permission_context: StudyPermissionContext = (
-                    #     await self.authorization_service.get_user_resource_permission(
-                    #         user.user_detail, resource_id=resource_id
-                    #     )
-                    # )
-                    # self.check_permission_context(
-                    #     permission_context, client_host, route_path
-                    # )
-                    # user.permission_context = permission_context
+                # permission_context: StudyPermissionContext = (
+                #     await self.authorization_service.get_user_resource_permission(
+                #         user.user_detail, resource_id=resource_id
+                #     )
+                # )
+                # self.check_permission_context(
+                #     permission_context, client_host, route_path
+                # )
+                # user.permission_context = permission_context
             else:
                 # if resource_id:
                 #     permission_context: StudyPermissionContext = (

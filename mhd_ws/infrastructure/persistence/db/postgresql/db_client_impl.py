@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
-from mhd_ws.infrastructure.persistence.db.postgresql.config import DatabaseConnection
+from mhd_ws.infrastructure.persistence.db.postgresql.config import (
+    DatabaseConnection,
+)
 
 logger = logging.getLogger(__name__)
 

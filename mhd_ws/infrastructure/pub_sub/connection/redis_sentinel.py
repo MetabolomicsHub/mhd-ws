@@ -1,6 +1,8 @@
 from typing import Any, Union
 
-from mhd_ws.application.services.interfaces.async_task.conection import PubSubConnection
+from mhd_ws.application.services.interfaces.async_task.conection import (
+    PubSubConnection,
+)
 from mhd_ws.infrastructure.cache.redis_sentinel.redis_sentinel_config import (
     RedisSentinelConnection,
 )
