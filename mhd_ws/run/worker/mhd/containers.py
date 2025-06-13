@@ -14,7 +14,9 @@ from mhd_ws.domain.domain_services.configuration_generator import (
     create_config_from_dict,
 )
 from mhd_ws.infrastructure.cache.redis.redis_impl import RedisCacheImpl
-from mhd_ws.infrastructure.pub_sub.celery.celery_impl import CeleryAsyncTaskService
+from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
+    CeleryAsyncTaskService,
+)
 from mhd_ws.run.config import ModuleConfiguration
 from mhd_ws.run.rest_api.mhd.base_container import (
     GatewaysContainer,
@@ -74,8 +76,12 @@ class MhdWorkerServicesContainer(containers.DeclarativeContainer):
     #     validation_history_object_key="validation-history",
     # )
 
+
 MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config-mhd.yaml")
-MHD_CONFIG_SECRETS_FILE = os.getenv("MHD_CONFIG_SECRETS_FILE", "config-secrets-mhd.yaml")
+MHD_CONFIG_SECRETS_FILE = os.getenv(
+    "MHD_CONFIG_SECRETS_FILE", "config-secrets-mhd.yaml"
+)
+
 
 class MhdWorkerApplicationContainer(containers.DeclarativeContainer):
     config = providers.Configuration(yaml_files=[MHD_CONFIG_FILE])

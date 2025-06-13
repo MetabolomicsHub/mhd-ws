@@ -14,7 +14,6 @@ python-dateutil = "^2.9.0.post0"
 pytz = "^2024.2"
 pyyaml = ">=6.0.2"
 dependency-injector = "^4.42.0"
-metabolights-utils = "^1.4.2"
 
 # celery worker dependencies
 uvloop =  { version = "^0.21.0", optional = true }
@@ -36,7 +35,6 @@ aiocache =  { version = ">=0.12.2", optional = true }
 pyjwt = { version = ">=2.9.0", optional = true }
 
 jsonpath-ng = "^1.7.0"
-pymongo = "^4.10.1"
 gunicorn = "^23.0.0"
 ujson = "^5.10.0"
 cryptography = "^44.0.2"
@@ -48,12 +46,8 @@ bioregistry = "^0.12.11"
 ftputil = "^5.1.0"
 reachable = "^0.7.0"
 charset-normalizer = "3.4.1"
-mhd-model = {path = "../mhd-model"}
+mhd-model = "^0.0.3"
 
-
-[tool.poetry.extras]
-ws = ["uvloop", "celery", "httpx", "sqlalchemy", "asyncpg", "metabolights-utils", "redis", "fastapi", "python-multipart", "uvicorn", "aiocache", "pyjwt", "asgi-correlation-id"]
-ws_worker = ["uvloop", "celery", "httpx", "sqlalchemy", "asyncpg", "metabolights-utils", "redis"]
 
 [tool.poetry.group.dev.dependencies]
 import-linter = "^2.1"
@@ -107,6 +101,10 @@ directory = ".coverage_html_report"
 
 
 
+
+
+
+
 [tool.poetry.group.test.dependencies]
 pytest = ">=8.3.4"
 pytest-asyncio = "^0.24.0"
@@ -124,7 +122,7 @@ version = "3.3.0"
 tag_format = "v$major.$minor.$patch"
 version_files = [
     "pyproject.toml:version",
-    "mhd/__init__.py:__version__",
+    "mhd_model/__init__.py:__version__",
 ]
 bump_message = "bump: version $current_version -> $new_version"
 update_changelog_on_bump = true

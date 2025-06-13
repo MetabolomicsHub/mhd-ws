@@ -4,7 +4,10 @@ from typing import Annotated
 import annotated_types
 from pydantic import BeforeValidator
 
-from mhd_ws.domain.shared.model_validators import validate_datetime, validate_integer
+from mhd_ws.domain.shared.model_validators import (
+    validate_datetime,
+    validate_integer,
+)
 
 UtcDatetime = Annotated[datetime.datetime, BeforeValidator(validate_datetime)]
 Integer = Annotated[int, BeforeValidator(validate_integer)]

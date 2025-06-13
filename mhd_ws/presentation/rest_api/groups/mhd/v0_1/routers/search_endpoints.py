@@ -9,7 +9,9 @@ from metabolights_utils.common import CamelCaseModel
 from pydantic import Field
 
 from mhd_ws.application.services.interfaces.cache_service import CacheService
-from mhd.model.v0_1.announcement.profiles.base.profile import AnnouncementBaseProfile
+from mhd_model.model.v0_1.announcement.profiles.base.profile import (
+    AnnouncementBaseProfile,
+)
 
 logger = getLogger(__name__)
 

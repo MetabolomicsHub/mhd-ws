@@ -8,12 +8,12 @@ from typing import Any, OrderedDict
 import jsonschema
 from dependency_injector.wiring import Provide, inject
 from jsonschema import exceptions
-from mhd.model.v0_1.dataset.validation.validator import MhdFileValidator
-from mhd.shared.model import ProfileEnabledDataset
+from mhd_model.model.v0_1.dataset.validation.validator import MhdFileValidator
+from mhd_model.shared.model import ProfileEnabledDataset
 
-from mhd.model import SUPPORTED_SCHEMA_MAP
-from mhd.model.v0_1.announcement.validation.base import ProfileValidator
-from mhd.model.v0_1.announcement.validation.validator import (
+from mhd_model.model import SUPPORTED_SCHEMA_MAP
+from mhd_model.model.v0_1.announcement.validation.base import ProfileValidator
+from mhd_model.model.v0_1.announcement.validation.validator import (
     MhdAnnouncementFileValidator,
 )
 from sqlalchemy import func, select
@@ -33,7 +33,7 @@ from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.models import (
     DatasetRevisionError,
     TaskResult,
 )
-from mhd.model.v0_1.announcement.profiles.base.profile import (
+from mhd_model.model.v0_1.announcement.profiles.base.profile import (
     AnnouncementBaseProfile,
 )
 

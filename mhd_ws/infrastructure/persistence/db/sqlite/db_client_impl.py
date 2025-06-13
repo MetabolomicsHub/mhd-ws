@@ -6,7 +6,9 @@ from typing import Any, AsyncGenerator, Union
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
-from mhd_ws.infrastructure.persistence.db.sqlite.config import SQLiteDatabaseConnection
+from mhd_ws.infrastructure.persistence.db.sqlite.config import (
+    SQLiteDatabaseConnection,
+)
 
 logger = logging.getLogger(__name__)
 

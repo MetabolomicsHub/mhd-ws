@@ -10,7 +10,9 @@ import mhd_ws
 from mhd_ws.application.services.interfaces.async_task.utils import (
     get_async_task_registry,
 )
-from mhd_ws.infrastructure.pub_sub.celery.celery_impl import CeleryAsyncTaskService
+from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
+    CeleryAsyncTaskService,
+)
 from mhd_ws.run.config_renderer import render_config_secrets
 from mhd_ws.run.module_utils import load_modules
 from mhd_ws.run.rest_api.mhd import initialization

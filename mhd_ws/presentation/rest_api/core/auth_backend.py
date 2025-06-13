@@ -6,7 +6,10 @@ from starlette.authentication import (
     AuthenticationError,
 )
 
-from mhd_ws.domain.entities.auth_user import AuthenticatedUser, UnauthenticatedUser
+from mhd_ws.domain.entities.auth_user import (
+    AuthenticatedUser,
+    UnauthenticatedUser,
+)
 from mhd_ws.infrastructure.persistence.db.mhd import Repository
 
 logger = logging.getLogger(__name__)

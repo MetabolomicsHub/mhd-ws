@@ -3,7 +3,9 @@ from mhd_ws.application.context.async_task_registry import (
     ASYNC_TASK_QUEUE,
     ASYNC_TASK_REGISTRY,
 )
-from mhd_ws.domain.shared.async_task.async_task_description import AsyncTaskDescription
+from mhd_ws.domain.shared.async_task.async_task_description import (
+    AsyncTaskDescription,
+)
 
 
 def async_task(

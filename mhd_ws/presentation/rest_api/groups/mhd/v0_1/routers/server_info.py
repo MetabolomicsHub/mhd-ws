@@ -6,8 +6,8 @@ from dependency_injector.wiring import inject
 from fastapi import APIRouter, Header, Response, status
 from fastapi.responses import StreamingResponse
 from metabolights_utils.common import CamelCaseModel
-from mhd.model import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
-from mhd.schema_utils import load_mhd_json_schema
+from mhd_model.model import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
+from mhd_model.schema_utils import load_mhd_json_schema
 from pydantic import Field
 
 logger = getLogger(__name__)
