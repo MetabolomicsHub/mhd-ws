@@ -10,7 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import mhd_ws
+from mhd_ws.application.context.request_tracker import get_request_tracker
 from mhd_ws.presentation.rest_api.core import core_router
+from mhd_ws.presentation.rest_api.core.auth_backend import AuthBackend
+from mhd_ws.presentation.rest_api.core.authorization_middleware import (
+    AuthorizationMiddleware,
+)
 from mhd_ws.presentation.rest_api.core.exception import exception_handler
 from mhd_ws.presentation.rest_api.core.models import ApiServerConfiguration
 from mhd_ws.presentation.rest_api.shared.router_utils import add_routers
@@ -19,6 +24,7 @@ from mhd_ws.run.module_utils import load_modules
 from mhd_ws.run.rest_api.mhd import initialization
 from mhd_ws.run.rest_api.mhd.containers import MhdApplicationContainer
 from mhd_ws.run.subscribe import find_async_task_modules, find_injectable_modules
+from starlette.middleware.authentication import AuthenticationMiddleware
 
 logger = None
 
@@ -115,6 +121,23 @@ def create_app(
                 logger.debug("Search routers within %s", router_path)
                 add_routers(application=app, root_path=router_path)
 
+    app.add_middleware(
+        AuthorizationMiddleware,
+        request_tracker=get_request_tracker(),
+        api_token_authorizations=container.config.run.mhd_ws.api_token_authorizations(),
+        signed_jwt_authorizations=container.config.run.mhd_ws.signed_jwt_authorizations(),
+    )
+    auth_backend = AuthBackend(
+        db_client=container.gateways.database_client(),
+        api_token_authorizations=container.config.run.mhd_ws.api_token_authorizations(),
+        signed_jwt_authorizations=container.config.run.mhd_ws.signed_jwt_authorizations(),
+    )
+    app.add_middleware(AuthenticationMiddleware, backend=auth_backend)
+    app.add_middleware(
+        CorrelationIdMiddleware,
+        header_name="X-Request-ID",
+        generator=lambda: str(uuid.uuid4()),
+    )
     if server_config.cors.origins:
         origin_regex = "|".join(server_config.cors.origins)
         app.add_middleware(
@@ -125,23 +148,6 @@ def create_app(
             allow_headers=["*"],
             expose_headers=["X-Request-ID"],
         )
-
-    # app.add_middleware(
-    #     AuthorizationMiddleware,
-    #     authorization_service=container.services.authorization_service(),
-    #     request_tracker=get_request_tracker(),
-    #     authorized_endpoints=container.config.run.submission.authorized_endpoints(),
-    # )
-    # auth_backend = AuthBackend(
-    #     authentication_service=container.services.authentication_service(),
-    #     user_read_repository=container.repositories.user_read_repository(),
-    # )
-    # app.add_middleware(AuthenticationMiddleware, backend=auth_backend)
-    app.add_middleware(
-        CorrelationIdMiddleware,
-        header_name="X-Request-ID",
-        generator=lambda: str(uuid.uuid4()),
-    )
     return app, container
 
 
@@ -167,7 +173,7 @@ if __name__ == "__main__":
     fast_app = get_app(initial_container=init_container)
     server_configuration: ApiServerConfiguration = init_container.api_server_config()
     config = server_configuration.server_info
-    log_config = init_container.config.run.mhd.logging()
+    log_config = init_container.config.run.mhd_ws.logging()
     uvicorn.run(
         fast_app,
         host="0.0.0.0",

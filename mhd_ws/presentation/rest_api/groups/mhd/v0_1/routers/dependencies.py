@@ -1,4 +1,3 @@
-import datetime
 import hashlib
 import json
 import pathlib
@@ -6,21 +5,22 @@ from functools import lru_cache
 from logging import getLogger
 from typing import Annotated
 
-import jwt
+from dependency_injector.wiring import Provide, inject
 from fastapi import Depends, Header
 from fastapi.openapi.models import Example
-from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
     ApiToken,
     ApiTokenStatus,
-    Repository,
-    RepositoryStatus,
 )
-from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db import get_db
+from mhd_ws.presentation.rest_api.core.auth_utils import (
+    RepositoryModel,
+    RepositoryValidation,
+    validate_repository_signed_jwt_token,
+)
 
 logger = getLogger(__name__)
 
@@ -32,45 +32,7 @@ def load_json(file: str):
     return json_file
 
 
-class RepositoryModel(BaseModel):
-    id: Annotated[int, Field(title="Repository ID", description="Repository ID")]
-    name: Annotated[str, Field(title="Repository Name", description="Repository name")]
-    description: Annotated[
-        None | str,
-        Field(title="Repository description", description="Repository description"),
-    ] = None
-    join_datetime: Annotated[
-        datetime.datetime, Field(title="Repository join date", description="join date")
-    ]
-    status: Annotated[
-        RepositoryStatus,
-        Field(title="Repository status", description="Repository status"),
-    ]
-    public_key: Annotated[
-        None | str, Field(title="Repository public key", description="Repository key")
-    ] = None
-
-
-class RepositoryValidation(BaseModel):
-    repository: Annotated[
-        None | RepositoryModel,
-        Field(
-            title="Repository Name",
-            description="Repository name stored on MetabolomicsHub database.",
-        ),
-    ] = None
-    message: Annotated[
-        None | str,
-        Field(
-            title="Validation message",
-            description="Validation message. If the repository token is valid, this will be empty.",
-        ),
-    ] = None
-
-
-VALIDATED_AUDIANCE = "https://www.metabolomicshub.org"
-
-
+@inject
 async def validate_api_token(
     api_token: Annotated[
         str,
@@ -80,10 +42,10 @@ async def validate_api_token(
             alias="x-api-token",
         ),
     ],
-    session: AsyncSession = Depends(get_db),
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ) -> RepositoryModel | None:
     token_hash = hashlib.sha256(api_token.encode()).hexdigest()
-    async with session:
+    async with db_client.session() as session:
         stmt = (
             select(ApiToken)
             .where(
@@ -127,7 +89,7 @@ JWT token structure:
     
         + sub: (Subject) repository name defined in MetabolomicsHub database. 
                 It is case sensitive string (e.g., MetaboLights, Metabolomics Workbench, GNPS, etc.)
-        + aud: (Audience) MetabolomicsHub portal URL (Valid value: https://www.metabolomexchage.org)
+        + aud: (Audience) MetabolomicsHub portal URL (Valid value: https://www.metabolomicshub.org)
         + iat: (Issued At) Issued time in seconds since the Epoch (IEEE Std 1003.1, 2013 Edition)
         + exp: (Expiration Time) Seconds Since the Epoch (IEEE Std 1003.1, 2013 Edition)
 Example:
@@ -155,59 +117,12 @@ signed_jwt_token_header = Header(
             value="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJNZXRhYm9MaWdodHMiLCJhdWQiOiJodHRwczovL3d3dy5tZXRhYm9sb21pY3NodWIub3JnIiwiaWF0IjoxNjk5ODg2NTAwLCJleHAiOjE4OTk5NzI5MDB9.h9hNPcrh8aekGplPdLtvgkEzwPjUBb1TA8TVV-2pBdTofySS2dDsiW_e0HVVy2MqmEeuRiTpT6Wrc2U3XAnEmchy-58Md-UeIdVSNd1F6NW7z2ysHIG_j_g5_sJ4AIHH6U4fHmc8P7mXT8QO9jLU2XLkZ5RCoSioxkpPMjRjmvNr3ugBlDjr13jm-yEcvzdCFq4s4soypnmaYKBZv6ycvcOfb_q6a7qI_w3BQ2ii5kGND5t94VNwxLMF7IqcKlLtVKutD2D1PZKS_bdEu817_oIw8dSqzI00mJBDHjD5rszDkF_9UZAAKb_VxArBewZP955uwpz4t_lackqUs2tXww",
         ),
     },
-    alias="x_signed_jwt_token",
+    alias="x-signed-jwt-token",
 )
 
-
+@inject
 async def validate_repository_token(
     signed_jwt_token: Annotated[str, signed_jwt_token_header],
-    session: AsyncSession = Depends(get_db),
+    db_client: DatabaseClient = Depends(Provide["gateways.database_client"]),
 ) -> None | RepositoryValidation:
-    token = signed_jwt_token
-    options = {"require": ["exp", "sub", "iat", "sub"]}
-    message = None
-    repository_model = None
-    try:
-        decoded: dict[str, str] = jwt.decode(
-            token, "", options={"verify_signature": False}
-        )
-        sub = decoded.get("sub")
-
-        if sub:
-            async with session:
-                stmt = select(Repository).where(
-                    Repository.name == sub, Repository.status == RepositoryStatus.ACTIVE
-                )
-                result = await session.execute(stmt)
-                repo = result.scalar_one_or_none()
-                if not repo:
-                    message = f"Repository '{sub}' is not found or not active."
-                    logger.error(message)
-                else:
-                    public_key = repo.public_key
-                    if public_key:
-                        decoded = jwt.decode(
-                            jwt=token,
-                            key=public_key,
-                            options=options,
-                            audience=VALIDATED_AUDIANCE,
-                            algorithms=["RS256"],
-                        )
-                        logger.info("%s signed JWT token is validated.", repo.name)
-                        repository_model = RepositoryModel.model_validate(
-                            repo, from_attributes=True
-                        )
-                        return RepositoryValidation(
-                            repository=repository_model, message=message
-                        )
-                    else:
-                        message = f"{repo.name} pepository public key is not found."
-                        logger.error(message)
-        else:
-            message = "Repository name not defined."
-            logger.error(message)
-    except Exception as ex:
-        message = "Error decoding JWT token"
-        logger.exception(ex)
-
-    return RepositoryValidation(message=message)
+    return await validate_repository_signed_jwt_token(signed_jwt_token, db_client)

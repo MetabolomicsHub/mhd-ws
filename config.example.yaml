@@ -1,0 +1,149 @@
+gateways:
+  cache:
+    redis:
+      connection:
+        password: my_redis_password
+        db: 14
+        redis_service:
+          host: localhost
+          port: 6379
+        socket_timeout: 0.4
+  database:
+    postgresql:
+      connection:
+        host: localhost
+        port: 5432
+        user: mhd
+        password: mhd_password
+        database: mhd
+        url_scheme: postgresql+asyncpg
+services: {}
+run:
+  mhd_ws:
+    module_config:
+      loaded_sub_package_names:
+      - mhd_ws.presentation.rest_api.core
+      - mhd_ws.presentation.rest_api.groups.mhd/v0_1
+    api_token_authorizations:
+    - prefix: "/v0_1/datasets"
+    - prefix: "/v0_1/identifiers"
+    - prefix: "/v0_1/validations"
+    signed_jwt_authorizations:
+    - prefix: "/v0_1/api-tokens/"
+    api_server_config:
+      port: 7070
+      api_groups:
+      - config_name: "mhd"
+        enabled: true
+        router_paths:
+        - mhd_ws/presentation/rest_api/groups/mhd
+      cors:
+        origins:
+        # - http(s*)://.*.ebi.ac.uk(:.+)?
+        - http(s*)://localhost(:.+)?
+        - http(s*)://.*\.docker\.internal(:.+)?
+      server_info:
+        root_path: ""
+        title: "MetabolomicsHub Submission & Search API"
+        description: MetabolomicsHub submission & search API to enable the full sharing and exploitation of metabolomics data hosted on MetabolomicsHub partner repositories.
+        summary: MetabolomicsHub Submission & Search API
+        terms_of_service: https://www.ebi.ac.uk/about/terms-of-use
+        license_info:
+          name: Apache 2.0
+          identifier: Apache 2.0
+        contact:
+          name: MetabolomicsHub
+          url: https://metabolomicshub.org
+          email: mhd-help@metabolomicshub.org
+        openapi_tags:
+        - name: "About API"
+          description: "Get information about API"
+        - name: "MHD Identifiers"
+          description: "Metabolomics Hub Identifier Operations"
+        - name: "Dataset Announcements"
+          description: "Metabolomics Hub Dataset Announcements"
+        - name: "Dataset Validation"
+          description: "Metabolomics Hub Dataset Validation Operations"
+        - name: "API Tokens"
+          description: "Metabolomics Hub API Token Operations"
+    logging:
+      version: 1
+      disable_existing_loggers: false
+      formatters:
+        json_formatter:
+          format: '{ "level_name": "%(levelname)s", "time": "%(asctime)s",  "client": "%(client)s",  "path": "%(route_path)s", "resource_id": "%(resource_id)s", "user": %(user_id)s, "request_id": "%(request_id)s", "name": "%(name)s", "message": "%(message)s" }'
+        text_formatter:
+          format: '%(levelname)-8s %(asctime)s %(user_id)s %(client)s %(route_path)s %(resource_id)s %(request_id)s %(name)s "%(message)s"'
+      handlers:
+        console:
+          class: "logging.StreamHandler"
+          level: DEBUG
+          formatter: "text_formatter"
+          stream: "ext://sys.stdout"
+          filters: [ default_filter, correlation_id ]
+      root:
+        level: DEBUG
+        handlers: [ "console" ]
+        propogate: true
+      loggers:
+        mhd:
+          level: DEBUG
+          propogate: yes
+        uvicorn:
+          level: INFO
+          propogate: yes
+        celery:
+          level: INFO
+          propogate: yes
+        httpcore:
+          level: WARNING
+          propogate: yes
+      filters:
+        correlation_id:
+          (): "asgi_correlation_id.CorrelationIdFilter"
+          default_value: "-"
+        default_filter:
+          (): "mhd_ws.run.rest_api.mhd.log_filter.DefaultLogFilter"
+  common_worker:
+    module_config:
+      loaded_sub_package_names:
+      - mhd_ws.presentation.rest_api.core
+      - mhd_ws.presentation.rest_api.groups.mhd
+    logging:
+      version: 1
+      disable_existing_loggers: false
+      formatters:
+        json_formatter:
+          format: '{ "level_name": "%(levelname)s", "time": "%(asctime)s", "route_path": "%(route_path)s", "resource_id": "%(request_id)s ", "user_id": %(user_id)s, "request_id": "%(request_id)s", "task_id": "%(task_id)s", "thread_name": "%(threadName)s",  "name": "%(name)s", "message": "%(message)s" }'
+        text_formatter:
+          format: '%(levelname)-8s %(asctime)s %(user_id)s %(client)s %(route_path)s %(resource_id)s %(request_id)s %(task_id)s %(threadName)s, %(name)s "%(message)s"'
+      handlers:
+        console:
+          class: "logging.StreamHandler"
+          level: DEBUG
+          formatter: "text_formatter"
+          stream: "ext://sys.stdout"
+          filters: [ default_filter ]
+      root:
+        level: DEBUG
+        handlers: [ "console" ]
+        propogate: true
+      loggers:
+        mhd:
+          level: DEBUG
+          propogate: yes
+        uvicorn:
+          level: DEBUG
+          propogate: yes
+        celery:
+          level: INFO
+          propogate: yes
+        httpcore:
+          level: WARNING
+          propogate: yes
+        asyncio:
+          level: INFO
+          propogate: yes
+      filters:
+        default_filter:
+          (): "mhd_ws.run.worker.mhd.log_filter.DefaultLogFilter"

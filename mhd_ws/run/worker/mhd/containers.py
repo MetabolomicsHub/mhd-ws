@@ -1,5 +1,5 @@
-from logging import config as logging_config
 import os
+from logging import config as logging_config
 
 from dependency_injector import containers, providers
 
@@ -77,10 +77,8 @@ class MhdWorkerServicesContainer(containers.DeclarativeContainer):
     # )
 
 
-MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config-mhd.yaml")
-MHD_CONFIG_SECRETS_FILE = os.getenv(
-    "MHD_CONFIG_SECRETS_FILE", "config-secrets-mhd.yaml"
-)
+MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config.yaml")
+MHD_CONFIG_SECRETS_FILE = os.getenv("MHD_CONFIG_SECRETS_FILE", "config-secrets.yaml")
 
 
 class MhdWorkerApplicationContainer(containers.DeclarativeContainer):

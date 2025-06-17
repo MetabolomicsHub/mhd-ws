@@ -5,7 +5,7 @@ from typing import Annotated
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Body, Depends, Query
 from fastapi.openapi.models import Example
-from metabolights_utils.common import CamelCaseModel
+from mhd_ws.domain.shared.model import MhdBaseModel
 from pydantic import Field
 
 from mhd_ws.application.services.interfaces.cache_service import CacheService
@@ -18,7 +18,7 @@ logger = getLogger(__name__)
 router = APIRouter(tags=["MetabolomicsHub Search"], prefix="/v0_1")
 
 
-class FilterOption(CamelCaseModel):
+class FilterOption(MhdBaseModel):
     filter_name: Annotated[
         str,
         Field(
@@ -42,7 +42,7 @@ class FilterOption(CamelCaseModel):
     ]
 
 
-class SortOption(CamelCaseModel):
+class SortOption(MhdBaseModel):
     field_name: Annotated[
         str,
         Field(
@@ -59,7 +59,7 @@ class SortOption(CamelCaseModel):
     ] = False
 
 
-class SearchOptions(CamelCaseModel):
+class SearchOptions(MhdBaseModel):
     filter_options: Annotated[
         None | list[FilterOption],
         Field(title="Filter Options", description="Defined filters"),
@@ -69,7 +69,7 @@ class SearchOptions(CamelCaseModel):
     ] = None
 
 
-class DatasetSearchResult(CamelCaseModel):
+class DatasetSearchResult(MhdBaseModel):
     skip: Annotated[
         int, Field(title="Skipped results", description="Skipped results.")
     ] = 0
@@ -85,7 +85,7 @@ class DatasetSearchResult(CamelCaseModel):
     ]
 
 
-class DatasetFileSearchResult(CamelCaseModel):
+class DatasetFileSearchResult(MhdBaseModel):
     skip: Annotated[
         int, Field(title="Skipped results", description="Skipped results.")
     ] = 0

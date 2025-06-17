@@ -19,27 +19,27 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
-from metabolights_utils.common import CamelCaseModel
 from pydantic import Field, PositiveInt
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from mhd_ws.application.services.interfaces.async_task.async_task_service import (
     AsyncTaskService,
     IdGenerator,
 )
 from mhd_ws.application.services.interfaces.cache_service import CacheService
+from mhd_ws.domain.shared.model import MhdBaseModel
+from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
     AnnouncementFile,
     Dataset,
     DatasetRevision,
 )
-from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db import get_db
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.dependencies import (
     RepositoryModel,
     validate_api_token,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.models import (
+    FileValidationModel,
     CreateDatasetRevisionModel,
     TaskResult,
 )
@@ -62,7 +62,7 @@ class TaskStatus(enum.StrEnum):
     FAILED = "FAILED"
 
 
-class MhdAsyncTaskResponse(CamelCaseModel):
+class MhdAsyncTaskResponse(MhdBaseModel):
     accession: Annotated[
         None | str,
         Field(
@@ -95,12 +95,12 @@ class MhdAsyncTaskResponse(CamelCaseModel):
         Field(title="Errors", description="MetabolomicsHub submission task errors"),
     ] = None
     result: Annotated[
-        None | CreateDatasetRevisionModel,
+        None | CreateDatasetRevisionModel | FileValidationModel,
         Field(title="Task result", description="Task result"),
     ] = None
 
 
-class Revision(CamelCaseModel):
+class Revision(MhdBaseModel):
     accession: Annotated[
         str,
         Field(
@@ -124,7 +124,7 @@ class Revision(CamelCaseModel):
     ]
 
 
-class MhDatasetRevision(CamelCaseModel):
+class MhDatasetRevision(MhdBaseModel):
     revision_number: Annotated[
         int, Field(title="Revision number", description="Revision number")
     ]
@@ -139,7 +139,7 @@ class MhDatasetRevision(CamelCaseModel):
     ]
 
 
-class MhDatasetRevisions(CamelCaseModel):
+class MhDatasetRevisions(MhdBaseModel):
     accession: Annotated[
         str,
         Field(
@@ -228,7 +228,7 @@ async def make_new_announcement(
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -243,18 +243,20 @@ async def make_new_announcement(
 
     contents = await file.read()
     # hash_value = hashlib.sha256(contents).hexdigest()
-    async with session:
-        stmt = select(Dataset.repository_id).where(Dataset.accession == accession)
+    dataset: None | Dataset = None
+    async with db_client.session() as session:
+        stmt = select(Dataset).where(Dataset.accession == accession)
         result = await session.execute(stmt)
-        repository_id = result.scalar()
-    if repository_id is None:
+        dataset = result.scalar()
+
+    if dataset is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         error = "There is no dataset."
         return MhdAsyncTaskResponse(
             accession=accession,
             errors=[error],
         )
-    elif repository_id != repository.id:
+    elif dataset.repository_id != repository.id:
         response.status_code = status.HTTP_403_FORBIDDEN
         error = "Repository has no permission to update dataset."
         return MhdAsyncTaskResponse(
@@ -272,13 +274,55 @@ async def make_new_announcement(
             task_id=task_id,
             errors=[error],
         )
+
+    try:
+        announcement_file_json = json.loads(contents.decode())
+        mhd_identifier = announcement_file_json.get("mhd_identifier", None)
+        repository_identifier = announcement_file_json.get(
+            "repository_identifier", None
+        )
+
+        if not mhd_identifier or not repository_identifier:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            error = "MHD identifier and repository identifier are required in the announcement file."
+            logger.error(error)
+            return MhdAsyncTaskResponse(
+                accession=accession,
+                errors=[error],
+            )
+        if mhd_identifier != accession:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            error = f"MHD identifier in the announcement file ({mhd_identifier}) does not match the input accession ({accession})."
+            logger.error(error)
+            return MhdAsyncTaskResponse(
+                accession=accession,
+                errors=[error],
+            )
+        if repository_identifier != dataset.dataset_repository_identifier:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            error = f"Repository identifier in the announcement file ({repository_identifier}) does not match the repository identifier in database ({dataset.dataset_repository_identifier})."
+            logger.error(error)
+            return MhdAsyncTaskResponse(
+                accession=accession,
+                errors=[error],
+            )
+
+    except json.JSONDecodeError:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        error = "Invalid JSON format in the announcement file."
+        logger.error(error)
+        return MhdAsyncTaskResponse(
+            accession=accession,
+            errors=[error],
+        )
+
     task_id = str(uuid.uuid4())
     await cache_service.set_value(
         file_cache_key,
         task_id,
         expiration_time_in_seconds=10 * 60,
     )
-    announcement_file_json = json.loads(contents.decode())
+
     executor = await async_task_service.get_async_task(
         add_submission_task,
         repository_id=repository.id,
@@ -377,17 +421,10 @@ async def get_task_status(
             description="MHD Identifier.",
         ),
     ],
-    task_id: Annotated[
-        None | str,
-        Path(
-            title="Task id. ",
-            description="task id.",
-        ),
-    ],
+    task_id: Annotated[str, Path(title="Task id. ", description="task id.")],
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -502,7 +539,7 @@ async def get_revisions(
         ),
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
@@ -515,7 +552,7 @@ async def get_revisions(
             errors=[error],
         )
 
-    async with session:
+    async with db_client.session() as session:
         query = (
             select(DatasetRevision)
             .join(
@@ -600,7 +637,7 @@ async def get_revision_file(
         ),
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
@@ -612,8 +649,14 @@ async def get_revision_file(
             accession=accession,
             errors=[error],
         )
-
-    async with session:
+    if not repository:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        error = "Repository is not found."
+        return MhdAsyncTaskResponse(
+            accession=accession,
+            errors=[error],
+        )
+    async with db_client.session() as session:
         query = (
             select(AnnouncementFile)
             .join(
@@ -639,13 +682,13 @@ async def get_revision_file(
 
         if not announcement_file:
             response.status_code = status.HTTP_404_NOT_FOUND
-            error = "Dataset annoucement file is not defined."
+            error = "Dataset announcement file is not defined."
             return MhdAsyncTaskResponse(
                 accession=accession,
                 errors=[error],
             )
         content = json.dumps(announcement_file.file, indent=2)
-        download_filename = f'attachment; filename="{accession}_annoucement.json"'
+        download_filename = f'attachment; filename="{accession}_announcement.json"'
         headers = {
             "x-mtbls-file-type": "application/json",
             "Content-Disposition": download_filename,
@@ -722,7 +765,7 @@ async def delete_dataset(
     return MhdAsyncTaskResponse(
         accession="MHD000001",
         task_id="delete-revisions-d3a08167-89e8-4e28-a824-38c66f92f437",
-        task_status=TaskStatus.COMPLETED,
+        task_status=TaskStatus.SUCCESS,
         messages=["Task is completed"],
         created_at=datetime.datetime(2020, 1, 30),
         updated_at=None,
@@ -769,7 +812,7 @@ Update dataset revision. Only latest dataset revision can be updated.
     },
 )
 @inject
-async def Update_dataset_revision(
+async def update_dataset_revision(
     api_token: Annotated[
         str,
         Header(
@@ -805,7 +848,7 @@ async def Update_dataset_revision(
     return MhdAsyncTaskResponse(
         accession="MHD000001",
         task_id="delete-revisions-d3a08167-89e8-4e28-a824-38c66f92f437",
-        task_status=TaskStatus.COMPLETED,
+        task_status=TaskStatus.SUCCESS,
         messages=["Task is completed"],
         created_at=datetime.datetime(2020, 1, 30),
         updated_at=None,
@@ -890,121 +933,6 @@ async def delete_dataset_revision(
 
 
 @router.post(
-    "/validations/mhd-common-dataset",
-    summary="Validate MetabolomicsHub Common Dataset File",
-    description="Validate MetabolomicsHub Common Dataset File and return validation results.",
-    tags=["Dataset Validation"],
-    response_model=MhdAsyncTaskResponse,
-)
-@inject
-async def make_new_dataset_model_validation(
-    response: Response,
-    file: Annotated[
-        UploadFile,
-        File(
-            title="MetabolomicsHub Common Dataset File",
-            description="MetabolomicsHub Common Dataset File.",
-        ),
-    ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
-    async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
-        Provide["services.async_task_service"]
-    ),
-    repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
-):
-    if not repository:
-        response.status_code = status.HTTP_403_FORBIDDEN
-        error = "API token is not valid"
-        return MhdAsyncTaskResponse(
-            errors=[error],
-        )
-
-    contents = await file.read()
-
-    file_sha256 = hashlib.sha256(contents).hexdigest()
-
-    file_cache_key = f"new-file-validation-task:{repository.id}:{file_sha256}"
-    await cache_service.delete_key(file_cache_key)
-
-    task_id = await cache_service.get_value(file_cache_key)
-    if task_id is not None:
-        error = "There is a task running for the current file."
-        logger.error(error)
-        response.status_code = status.HTTP_425_TOO_EARLY
-        return MhdAsyncTaskResponse(
-            task_id=task_id,
-            errors=[error],
-        )
-    task_id = str(uuid.uuid4())
-
-    task_key = f"new-file-validation-task:{repository.id}:{task_id}"
-    message = None
-    await cache_service.set_value(
-        file_cache_key,
-        task_id,
-        expiration_time_in_seconds=10 * 60,
-    )
-
-    await cache_service.set_value(
-        task_key,
-        file_sha256,
-        expiration_time_in_seconds=10 * 60,
-    )
-
-    file_json = json.loads(contents.decode())
-    executor = await async_task_service.get_async_task(
-        common_dataset_file_validation_task,
-        repository_id=repository.id,
-        file_json=file_json,
-        task_id=task_id,
-        id_generator=IdGenerator(lambda: task_id),
-    )
-
-    result = await executor.start()
-    task_id = result.get_id()
-    logger.info("New file validation task started for the task %s", task_id)
-
-    try:
-        updated_task_result = await async_task_service.get_async_task_result(task_id)
-    except Exception:
-        message = f"Current file validation task failed to start: {task_id}"
-        logger.error(message)
-        # await cache_service.delete_key(key)
-        # raise AsyncTaskStartFailure(resource_id, task_id, message) from ex
-        MhdAsyncTaskResponse(
-            task_id=task_id,
-            task_status="FAILED",
-            messages=["Task failed."],
-            created_at=datetime.datetime.now(datetime.UTC),
-            updated_at=None,
-        )
-
-    if updated_task_result.get_status().upper().startswith("FAIL"):
-        logger.error(
-            "Current task id:'%s' and its status: %s.",
-            updated_task_result.get_id(),
-            updated_task_result.get_status(),
-        )
-    else:
-        logger.debug(
-            "Current task id:'%s' and its status: %s.",
-            updated_task_result.get_id(),
-            updated_task_result.get_status(),
-        )
-
-    return MhdAsyncTaskResponse(
-        task_id=updated_task_result.get_id(),
-        task_status=updated_task_result.get_status(),
-        messages=["Task is submitted for the input file."],
-        created_at=datetime.datetime.now(datetime.UTC),
-        updated_at=None,
-    )
-
-
-@router.post(
     "/validations/announcement-file",
     summary="Validate Dataset Announcement File",
     description="Validate Dataset Announcement File and return validation results.",
@@ -1024,7 +952,6 @@ async def make_new_announcement_validation(
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -1073,6 +1000,7 @@ async def make_new_announcement_validation(
     executor = await async_task_service.get_async_task(
         announcement_file_validation_task,
         repository_id=repository.id,
+        filename=file.filename,
         announcement_file_json=announcement_file_json,
         task_id=task_id,
         id_generator=IdGenerator(lambda: task_id),
@@ -1093,9 +1021,9 @@ async def make_new_announcement_validation(
         logger.error(message)
         # await cache_service.delete_key(key)
         # raise AsyncTaskStartFailure(resource_id, task_id, message) from ex
-        MhdAsyncTaskResponse(
+        return MhdAsyncTaskResponse(
             task_id=task_id,
-            task_status="FAILED",
+            task_status=TaskStatus.FAILED,
             messages=["Task failed."],
             created_at=datetime.datetime.now(datetime.UTC),
             updated_at=None,
@@ -1116,7 +1044,134 @@ async def make_new_announcement_validation(
 
     return MhdAsyncTaskResponse(
         task_id=updated_task_result.get_id(),
-        task_status=updated_task_result.get_status(),
+        task_status=TaskStatus(updated_task_result.get_status().upper()),
+        messages=["Task is submitted for the input file."],
+        created_at=datetime.datetime.now(datetime.UTC),
+        updated_at=None,
+    )
+
+
+@router.post(
+    "/validations/mhd-common-dataset",
+    summary="Validate MetabolomicsHub Common Dataset File",
+    description="Validate MetabolomicsHub Common Dataset File and return validation results.",
+    tags=["Dataset Validation"],
+    response_model=MhdAsyncTaskResponse,
+)
+@inject
+async def make_new_dataset_model_validation(
+    response: Response,
+    file: Annotated[
+        UploadFile,
+        File(
+            title="Metabolomics Hub Common Dataset File",
+            description="Metabolomics Hub Common Dataset File.",
+        ),
+    ],
+    cache_service: CacheService = Depends(
+        Provide["services.cache_service"]
+    ),  # noqa: FAST002
+    async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
+        Provide["services.async_task_service"]
+    ),
+    repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
+):
+    if not repository:
+        response.status_code = status.HTTP_403_FORBIDDEN
+        error = "API token is not valid"
+        return MhdAsyncTaskResponse(
+            errors=[error],
+        )
+
+    contents = await file.read()
+
+    file_sha256 = hashlib.sha256(contents).hexdigest()
+
+    file_cache_key = f"new-file-validation-task:{repository.id}:{file_sha256}"
+    await cache_service.delete_key(file_cache_key)
+
+    task_id = await cache_service.get_value(file_cache_key)
+    if task_id is not None:
+        error = "There is a task running for the current file."
+        logger.error(error)
+        response.status_code = status.HTTP_425_TOO_EARLY
+        return MhdAsyncTaskResponse(
+            task_id=task_id,
+            errors=[error],
+        )
+    task_id = str(uuid.uuid4())
+
+    task_key = f"new-file-validation-task:{repository.id}:{task_id}"
+    message = None
+    await cache_service.set_value(
+        file_cache_key,
+        task_id,
+        expiration_time_in_seconds=10 * 60,
+    )
+
+    await cache_service.set_value(
+        task_key,
+        file_sha256,
+        expiration_time_in_seconds=10 * 60,
+    )
+    file_json = None
+    try:
+        file_json = json.loads(contents.decode())
+    except Exception:
+        message = f"Input file is not valid JSON: {file.filename}"
+        logger.error(message)
+        return MhdAsyncTaskResponse(
+            task_id=task_id,
+            task_status=TaskStatus.FAILED,
+            messages=[message],
+            created_at=None,
+            updated_at=None,
+        )
+
+    executor = await async_task_service.get_async_task(
+        common_dataset_file_validation_task,
+        repository_id=repository.id,
+        file_json=file_json,
+        filename=file.filename,
+        task_id=task_id,
+        id_generator=IdGenerator(lambda: task_id),
+    )
+
+    result = await executor.start()
+    task_id = result.get_id()
+    logger.info("New file validation task started for the task %s", task_id)
+    updated_task_result = None
+    try:
+        updated_task_result = await async_task_service.get_async_task_result(task_id)
+    except Exception:
+        message = f"Current file validation task failed to start: {task_id}"
+        logger.error(message)
+        # await cache_service.delete_key(key)
+        # raise AsyncTaskStartFailure(resource_id, task_id, message) from ex
+        return MhdAsyncTaskResponse(
+            task_id=task_id,
+            task_status=TaskStatus.FAILED,
+            messages=["Task failed."],
+            created_at=datetime.datetime.now(datetime.UTC),
+            updated_at=None,
+        )
+
+    if updated_task_result.get_status().upper().startswith("FAIL"):
+        logger.error(
+            "Current task id:'%s' and its status: %s.",
+            updated_task_result.get_id(),
+            updated_task_result.get_status(),
+        )
+    else:
+        logger.debug(
+            "Current task id:'%s' and its status: %s.",
+            updated_task_result.get_id(),
+            updated_task_result.get_status(),
+        )
+
+    return MhdAsyncTaskResponse(
+        task_id=updated_task_result.get_id(),
+        task_status=TaskStatus(updated_task_result.get_status().upper()),
         messages=["Task is submitted for the input file."],
         created_at=datetime.datetime.now(datetime.UTC),
         updated_at=None,
@@ -1131,10 +1186,10 @@ async def make_new_announcement_validation(
     response_model=MhdAsyncTaskResponse,
 )
 @inject
-async def get_announcement_validation_task(
+async def get_validation_task(
     response: Response,
     task_id: Annotated[
-        None | str,
+        str,
         Path(
             title="Task id. ",
             description="task id.",
@@ -1143,7 +1198,6 @@ async def get_announcement_validation_task(
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -1153,6 +1207,10 @@ async def get_announcement_validation_task(
         response.status_code = status.HTTP_400_BAD_REQUEST
         return MhdAsyncTaskResponse(errors=["Invalid API token"])
     task_key = f"new-file-validation-task:{repository.id}:{task_id}"
+    task_result_key = f"new-file-validation-task-result:{repository.id}:{task_id}"
+    cache_result = await cache_service.get_value(task_result_key)
+    if cache_result:
+        return MhdAsyncTaskResponse.model_validate_json(cache_result)
     task_result = None
     try:
         task_result = await async_task_service.get_async_task_result(task_id)
@@ -1170,20 +1228,28 @@ async def get_announcement_validation_task(
         try:
             # if task_result.is_successful():
             result = task_result.get()
-            output = TaskResult[CreateDatasetRevisionModel].model_validate(result)
+            output = TaskResult[FileValidationModel].model_validate(result)
             if output.success:
-                return MhdAsyncTaskResponse(
+                cache_result = MhdAsyncTaskResponse(
                     task_id=task_result.get_id(),
                     task_status=TaskStatus(task_result.get_status()),
                     result=output.result,
                     errors=output.errors,
                 )
-            return MhdAsyncTaskResponse(
+                return cache_result
+
+            cache_result = MhdAsyncTaskResponse(
                 task_id=task_result.get_id(),
                 task_status=TaskStatus.FAILED,
-                messages=[output.message],
+                messages=[output.message] if output.message else None,
                 errors=output.errors,
             )
+            await cache_service.set_value(
+                task_result_key,
+                cache_result.model_dump_json(),
+                expiration_time_in_seconds=60 * 10,
+            )
+            task_result.revoke(terminate=True)
         except Exception as ex:
             response.status_code = status.HTTP_400_BAD_REQUEST
             await cache_service.delete_key(task_key)

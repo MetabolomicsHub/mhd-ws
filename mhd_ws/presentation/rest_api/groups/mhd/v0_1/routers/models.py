@@ -50,6 +50,19 @@ class CreateDatasetRevisionModel(BaseModel):
         return value
 
 
+class FileValidationModel(BaseModel):
+    task_id: str
+    file: str | None = None
+    repository_id: None | int
+    repository_name: str
+    schema_uri: str
+    profile_uri: str
+    mhd_identifier: str
+    repository_identifier: str
+    repository_revision: None | int = None
+    repository_revision_datetime: None | str = None
+
+
 class DatasetRevisionModel(BaseModel):
     id: int
     dataset_id: int

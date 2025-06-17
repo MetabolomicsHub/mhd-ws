@@ -1,7 +1,7 @@
 import abc
-from typing import Any, AsyncGenerator
+from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class DatabaseClient(abc.ABC):
@@ -9,6 +9,4 @@ class DatabaseClient(abc.ABC):
     async def get_connection_repr(self) -> str: ...
 
     @abc.abstractmethod
-    async def session(
-        self,
-    ) -> AsyncGenerator[Any, async_sessionmaker[AsyncSession]]: ...
+    async def session(self) -> AsyncGenerator[AsyncSession, None]: ...

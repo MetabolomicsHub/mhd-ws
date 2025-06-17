@@ -80,25 +80,42 @@ class CeleryAsyncTaskResult(AsyncTaskResult):
 
 class CeleryAsyncTaskExecutor(AsyncTaskExecutor):
     def __init__(
-        self, task_method: Callable, task_name: str, id_generator: IdGenerator, **kwargs
+        self,
+        task_method: Callable,
+        task_name: str,
+        id_generator: None | IdGenerator = None,
+        on_success_task: None | Callable = None,
+        on_failure_task: None | Callable = None,
+        **kwargs,
     ):
         self.task_method = task_method
         self.kwargs = kwargs
         self.task_name = task_name
         self.id_generator = id_generator
+        self.on_success_task = on_success_task
+        self.on_failure_task = on_failure_task
 
     async def start(self, expires: Union[None, int] = None) -> AsyncTaskResult:
         request_tracker = get_request_tracker().get_request_tracker_model().model_dump()
         self.kwargs["request_tracker"] = request_tracker
+        success_method = self.on_success_task.s() if self.on_success_task else None
+        failure_method = self.on_failure_task.s() if self.on_failure_task else None
         if self.id_generator:
             task_id = self.id_generator.generate_unique_id()
             task = self.task_method.apply_async(
                 expires=expires,
-                kwargs=self.kwargs,
                 task_id=task_id,
+                link=success_method,
+                link_error=failure_method,
+                kwargs=self.kwargs,
             )
         else:
-            task = self.task_method.apply_async(expires=expires, kwargs=self.kwargs)
+            task = self.task_method.apply_async(
+                expires=expires,
+                link=self.on_success_task if self.on_success_task else None,
+                link_error=self.on_failure_task if self.on_failure_task else None,
+                kwargs=self.kwargs,
+            )
         logger.info("Task '%s' is created.", self.task_name)
         return CeleryAsyncTaskResult(task)
 
@@ -117,7 +134,7 @@ class CeleryAsyncTaskService(AsyncTaskService):
             broker, backend, app_name, queue_names, default_queue, async_task_registry
         )
         self.app_dict: dict[str, Celery] = {}
-        self.app_tasks: dict[str, dict[str, dict[str, Callable]]] = {}
+        self.app_tasks: dict[str, dict[str, Callable]] = {}
 
         self.app = self._create_async_app(
             broker, backend, app_name, queue_names, default_queue
@@ -128,7 +145,7 @@ class CeleryAsyncTaskService(AsyncTaskService):
         broker: Union[None, PubSubConnection] = None,
         backend: Union[None, PubSubConnection] = None,
         app_name: Union[None, str] = None,
-        queue_names: Union[None, list[str]] = None,
+        queue_names: Union[None, str | list[str]] = None,
         default_queue: Union[None, str] = None,
     ):
         if not broker or not backend:
@@ -136,7 +153,7 @@ class CeleryAsyncTaskService(AsyncTaskService):
         queue_names = queue_names if queue_names else ""
         default_queue = default_queue if default_queue else self.default_queue
         if isinstance(queue_names, str):
-            queue_names = {x.strip() for x in queue_names.split(",") if x.strip()}
+            queue_names = list({x.strip() for x in queue_names.split(",") if x.strip()})
         if not queue_names:
             queue_names = [default_queue]
 
@@ -187,18 +204,50 @@ class CeleryAsyncTaskService(AsyncTaskService):
     async def get_async_task(
         self,
         task_description: AsyncTaskDescription,
-        id_generator: IdGenerator = None,
+        id_generator: None | IdGenerator = None,
+        on_success_task: None | AsyncTaskDescription = None,
+        on_failure_task: None | AsyncTaskDescription = None,
         **kwargs,
     ) -> AsyncTaskExecutor:
+        tasks = self.app_tasks[self.app_name]
+        for desc, required in [
+            (task_description, True),
+            (on_success_task, False),
+            (on_failure_task, False),
+        ]:
+            if desc and not isinstance(desc, AsyncTaskDescription):
+                raise TypeError(
+                    f"Expected AsyncTaskDescription, got {type(desc).__name__}"
+                )
+            if required and desc.task_name not in tasks:
+                raise Exception(f"Task {desc.task_name} is not registered.")
         app_name = self.app_name
-        task_name = task_description.task_name
+        if task_description and app_name:
+            task_name = task_description.task_name
 
-        if task_name not in self.app_tasks[app_name]:
-            raise AsyncTaskError(f"Task {task_name} is not registered.")
-        task = self.app_tasks[app_name][task_name]
-        return CeleryAsyncTaskExecutor(
-            task, task_name=task_name, id_generator=id_generator, **kwargs
-        )
+            task_method = tasks.get(task_name)
+            on_success_task_method = None
+            if on_success_task:
+                on_success_task_method = on_success_task.task_method
+            on_failure_task_method = None
+            if on_failure_task:
+                on_failure_task_method = on_failure_task.task_method
+            if task_method:
+                return CeleryAsyncTaskExecutor(
+                    task_method,
+                    task_name=task_name,
+                    id_generator=id_generator,
+                    on_success_task=on_success_task_method,
+                    **kwargs,
+                )
+            else:
+                raise AsyncTaskError(
+                    f"Task {task_name} is not registered in app {app_name}."
+                )
+        else:
+            raise ValueError(
+                "task_description and app_name must be provided to get_async_task."
+            )
 
     async def get_async_task_result(self, task_id: str) -> AsyncTaskResult:
         if not task_id:

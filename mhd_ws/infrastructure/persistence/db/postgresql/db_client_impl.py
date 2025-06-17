@@ -16,13 +16,17 @@ logger = logging.getLogger(__name__)
 class DatabaseClientImpl(DatabaseClient):
     def __init__(
         self,
-        db_connection: Union[DatabaseConnection, dict[str, any]],
+        db_connection: Union[DatabaseConnection, dict[str, Any]],
         db_pool_size: Union[None, int] = 3,
     ) -> None:
         self.db_connection = db_connection
         if isinstance(db_connection, dict):
             self.db_connection = DatabaseConnection.model_validate(db_connection)
         cn = self.db_connection
+        if not isinstance(cn, DatabaseConnection):
+            raise TypeError(
+                f"db_connection must be of type DatabaseConnection, got {type(cn)}"
+            )
         self.db_url = (
             f"{cn.url_scheme}://{cn.user}:{cn.password}"
             + f"@{cn.host}:{cn.port}/{cn.database}"
@@ -56,8 +60,10 @@ class DatabaseClientImpl(DatabaseClient):
     async def get_connection_repr(self) -> str:
         return self.db_url_repr
 
+    
+
     @asynccontextmanager
-    async def session(self) -> AsyncGenerator[Any, async_sessionmaker[AsyncSession]]:
+    async def session(self) -> AsyncGenerator[AsyncSession, None]:
         async with self._async_session_factory() as session:
             try:
                 yield session
