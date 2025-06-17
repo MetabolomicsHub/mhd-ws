@@ -56,7 +56,7 @@ class ApiServerConfiguration(APIBaseModel):
     server_info: ServerInfo = ServerInfo()
     api_groups: list[ApiGroup] = []
     cors: CorsConfiguration = CorsConfiguration()
-    port: int = 7000
+    port: int = 7070
 
 
 class Version(APIBaseModel):

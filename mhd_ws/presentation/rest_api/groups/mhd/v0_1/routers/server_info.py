@@ -5,7 +5,7 @@ from typing import Annotated
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Header, Response, status
 from fastapi.responses import StreamingResponse
-from metabolights_utils.common import CamelCaseModel
+from mhd_ws.domain.shared.model import MhdBaseModel
 from mhd_model.model import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
 from mhd_model.schema_utils import load_mhd_json_schema
 from pydantic import Field
@@ -15,7 +15,7 @@ logger = getLogger(__name__)
 router = APIRouter(tags=["About API"], prefix="/v0_1")
 
 
-class ProfileResponse(CamelCaseModel):
+class ProfileResponse(MhdBaseModel):
     # name: Annotated[
     #     str, Field(title="Dataset Model Name", description="Dataset model name")
     # ]
@@ -25,7 +25,7 @@ class ProfileResponse(CamelCaseModel):
     # ]
 
 
-class MhdServerInfo(CamelCaseModel):
+class MhdServerInfo(MhdBaseModel):
     version: Annotated[str, Field(title="Server Version", description="Server version")]
     supported_schemas: Annotated[
         SupportedSchemaMap,

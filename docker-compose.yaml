@@ -1,0 +1,77 @@
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile.database
+    environment:
+      POSTGRES_DB: mhd
+      POSTGRES_USER: mhd
+      POSTGRES_PASSWORD: mhd_password
+      DB_URL: postgresql+psycopg2://mhd:mhd_password@db:5432/mhd
+    volumes:
+      - ./alembic.ini:/app/alembic.ini
+      - ./db_data:/var/lib/postgresql/data
+      - ./db_revisions:/app/db_revisions
+      - ./scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+      timeout: 10s
+
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--requirepass", "my_redis_password"]
+    environment:
+      REDIS_PASSWORD: my_redis_password
+    ports:
+      - "6379:6379"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "my_redis_password", "--raw", "incr", "ping" ]
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 2s
+
+  # mhd_ws_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.ws_worker
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   environment:
+  #     PYTHONPATH: /app
+  #     MHD_CONFIG_FILE: /app/config.yaml
+  #     MHD_CONFIG_SECRETS_FILE: /app/config-secrets.yaml
+  #   command: python mhd_ws/run/worker/mhd/main.py
+
+  # mhd_ws:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.ws
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     mhd_ws_worker: 
+  #       condition: service_started
+  #   environment:
+  #     PYTHONPATH: /app
+  #     MHD_CONFIG_FILE: /app/config.yaml
+  #     MHD_CONFIG_SECRETS_FILE: /app/config-secrets.yaml
+  #   ports:
+  #     - "7070:7070"
+  #   command: python mhd_ws/run/rest_api/mhd/main.py
+

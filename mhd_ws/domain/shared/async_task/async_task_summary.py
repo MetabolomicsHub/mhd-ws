@@ -1,12 +1,13 @@
 from typing import Annotated, Generic, TypeVar, Union
 
-from metabolights_utils.common import CamelCaseModel
 from pydantic import Field
+
+from mhd_ws.domain.shared.model import MhdBaseModel
 
 T = TypeVar("T")
 
 
-class AsyncTaskStatus(CamelCaseModel):
+class AsyncTaskStatus(MhdBaseModel):
     task_id: Annotated[
         str,
         Field(
@@ -39,11 +40,11 @@ class AsyncTaskStatus(CamelCaseModel):
     ] = ""
 
 
-class AsyncTaskSummary(CamelCaseModel, Generic[T]):
+class AsyncTaskSummary(MhdBaseModel, Generic[T]):
     task: Annotated[
         AsyncTaskStatus,
         Field(description="This field contains task information."),
-    ] = ""
+    ] = AsyncTaskStatus()
     task_result: Annotated[
         Union[None, str, T],
         Field(

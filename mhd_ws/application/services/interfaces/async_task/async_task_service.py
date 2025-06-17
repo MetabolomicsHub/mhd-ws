@@ -1,6 +1,7 @@
 import uuid
 from typing import Callable, Union
 
+from mhd_ws.application.context.async_task_registry import AsyncTaskRegistry
 from mhd_ws.application.services.interfaces.async_task.async_task_executor import (
     AsyncTaskExecutor,
 )
@@ -31,9 +32,9 @@ class AsyncTaskService:
         broker: Union[None, PubSubConnection] = None,
         backend: Union[None, PubSubConnection] = None,
         app_name: Union[None, str] = None,
-        queue_names: Union[None, set[str]] = None,
+        queue_names: Union[None, list[str]] = None,
         default_queue: Union[None, str] = None,
-        async_task_registry: dict[str, dict[str, Callable]] = None,
+        async_task_registry: None | AsyncTaskRegistry = None,
     ):
         self.default_queue = default_queue if default_queue else "common"
         self.async_task_registry = (
@@ -41,13 +42,15 @@ class AsyncTaskService:
         )
         self.broker = broker
         self.backend = backend
-        self.app_name = app_name
-        self.queue_names = queue_names if queue_names else {self.default_queue}
+        self.app_name = app_name if app_name else "default"
+        self.queue_names = queue_names if queue_names else [self.default_queue]
 
     async def get_async_task(
         self,
         task_description: AsyncTaskDescription,
-        id_generator: IdGenerator = None,
+        id_generator: None | IdGenerator = None,
+        on_success_task: None | AsyncTaskDescription = None,
+        on_failure_task: None | AsyncTaskDescription = None,
         **kwargs,
     ) -> AsyncTaskExecutor: ...
 

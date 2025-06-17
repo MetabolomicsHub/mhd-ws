@@ -4,20 +4,28 @@ from logging import getLogger
 from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, Header, Query, Response, status
-from metabolights_utils.common import CamelCaseModel
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    Query,
+    Response,
+)
+from fastapi import (
+    status as fastapi_status,
+)
 from pydantic import BaseModel, Field, field_serializer
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from mhd_ws.application.services.interfaces.cache_service import CacheService
+from mhd_ws.domain.shared.model import MhdBaseModel
+from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
     Dataset,
     DatasetStatus,
     Identifier,
     Repository,
 )
-from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db import get_db
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.dependencies import (
     RepositoryModel,
     validate_api_token,
@@ -28,7 +36,7 @@ logger = getLogger(__name__)
 router = APIRouter(tags=["MHD Identifiers"], prefix="/v0_1")
 
 
-class DatasetModel(CamelCaseModel):
+class DatasetModel(MhdBaseModel):
     accession: Annotated[
         str,
         Field(
@@ -132,12 +140,12 @@ async def request_new_identifier(
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ):
     if not repository:
-        response.status_code = status.HTTP_403_FORBIDDEN
+        response.status_code = fastapi_status.HTTP_403_FORBIDDEN
         return {"message": "Unauthorized request."}
-    async with session:
+    async with db_client.session() as session:
         stmt = select(Repository).where(Repository.id == repository.id).limit(1)
         result = await session.execute(stmt)
         db_repository = result.scalar_one_or_none()
@@ -150,7 +158,7 @@ async def request_new_identifier(
         result = await session.execute(stmt)
         current_dataset = result.scalar_one_or_none()
         if current_dataset is not None:
-            response.status_code = status.HTTP_400_BAD_REQUEST
+            response.status_code = fastapi_status.HTTP_400_BAD_REQUEST
             session.rollback()
 
             return AssignNewIdentifierResponse(
@@ -174,7 +182,7 @@ async def request_new_identifier(
             last_accession = result.scalar_one_or_none()
             if not last_accession:
                 await session.rollback()
-                response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+                response.status_code = fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR
                 return AssignNewIdentifierResponse(
                     assignment=None, message="Failed to create new MHD identifier."
                 )
@@ -203,7 +211,7 @@ async def request_new_identifier(
 
         except Exception as e:
             await session.rollback()
-            logger.ex("Failed to create new MHD identifier: %s", str(e))
+            logger.error("Failed to create new MHD identifier: %s", str(e))
             return AssignNewIdentifierResponse(
                 assignment=None, message="Failed to create new MHD identifier."
             )
@@ -225,6 +233,7 @@ class DatasetStatusQuery(enum.StrEnum):
 )
 @inject
 async def get_identifiers(
+    response: Response,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)],
     accession: Annotated[
         None | str,
@@ -250,8 +259,15 @@ async def get_identifiers(
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ):
+    if not repository:
+        response.status_code = fastapi_status.HTTP_403_FORBIDDEN
+        return IdentifiersResponse(
+            message="Unauthorized request.",
+            identifiers=[],
+            repository_name=None,
+        )
     query = select(Dataset).where(Dataset.repository_id == repository.id)
     if accession:
         query = query.where(Dataset.accession == accession)
@@ -263,7 +279,7 @@ async def get_identifiers(
         query = query.where(Dataset.status == DatasetStatus[status.value])
 
     stmt = query.order_by(Dataset.accession.asc())
-    async with session:
+    async with db_client.session() as session:
         result = await session.execute(stmt)
         db_assignments = result.scalars().all()
         assignments = [

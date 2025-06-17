@@ -41,7 +41,7 @@ class ThreadingAsyncTaskResult(AsyncTaskResult):
         self.is_group = is_group
         self.ready = False
         self.successful = False
-        self.result = None
+        self.result: Any = None
         self.status = "PENDING"
         self.async_task_results_dict = async_task_results_dict
         self.async_task_results_dict[self.id] = self
@@ -98,7 +98,9 @@ class ThreadingAsyncTaskExecutor(AsyncTaskExecutor):
         task_method: Callable,
         task_name: str,
         async_task_results_dict: dict[str, AsyncTaskResult],
-        id_generator=Union[None, IdGenerator],
+        id_generator: None | IdGenerator = None,
+        on_success_task: None | Callable = None,
+        on_failure_task: None | Callable = None,
         **kwargs,
     ):
         self.id_generator = id_generator if id_generator else IdGenerator()
@@ -106,6 +108,8 @@ class ThreadingAsyncTaskExecutor(AsyncTaskExecutor):
         self.kwargs = kwargs
         self.task_name = task_name
         self.async_task_results_dict = async_task_results_dict
+        self.on_success_task = on_success_task
+        self.on_failure_task = on_failure_task
 
     async def start(self, expires: Union[None, int] = None) -> AsyncTaskResult:
         task_id = self.id_generator.generate_unique_id()
@@ -176,7 +180,7 @@ class ThreadingAsyncTaskService(AsyncTaskService):
         app_name: Union[None, str] = None,
         queue_names: Union[None, set[str]] = None,
         default_queue: Union[None, str] = None,
-        async_task_registry: Union[None, AsyncTaskRegistry] = None,
+        async_task_registry: None | AsyncTaskRegistry = None,
     ):
         if not app_name:
             app_name = "default"
@@ -214,18 +218,35 @@ class ThreadingAsyncTaskService(AsyncTaskService):
     async def get_async_task(
         self,
         task_description: AsyncTaskDescription,
-        app_name: Union[None, str] = None,
-        id_generator: IdGenerator = None,
+        id_generator: None | IdGenerator = None,
+        on_success_task: None | AsyncTaskDescription = None,
+        on_failure_task: None | AsyncTaskDescription = None,
         **kwargs,
     ) -> AsyncTaskExecutor:
-        if task_description.task_name not in self.app_tasks:
-            raise Exception(f"Task {task_description.task_name} is not registered.")
-
+        for desc, required in [
+            (task_description, True),
+            (on_success_task, False),
+            (on_failure_task, False),
+        ]:
+            if desc and not isinstance(desc, AsyncTaskDescription):
+                raise TypeError(
+                    f"Expected AsyncTaskDescription, got {type(desc).__name__}"
+                )
+            if required and desc.task_name not in self.app_tasks:
+                raise Exception(f"Task {desc.task_name} is not registered.")
+        on_success_task_method = None
+        if on_success_task:
+            on_success_task_method = self.app_tasks[on_success_task.task_name].task_method
+        on_failure_task_method = None
+        if on_failure_task:
+            on_failure_task_method = self.app_tasks[on_failure_task.task_name].task_method
         return ThreadingAsyncTaskExecutor(
             task_method=self.app_tasks[task_description.task_name].task_method,
             task_name=task_description.task_name,
             async_task_results_dict=self.async_task_results_dict,
             id_generator=id_generator,
+            on_success_task=on_success_task_method,
+            on_failure_task=on_failure_task_method,
             **kwargs,
         )
 

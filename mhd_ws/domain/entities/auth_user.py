@@ -1,11 +1,14 @@
-from typing import Any, Union
+from typing import Any
 
 from starlette import authentication
 
 
 class UnauthenticatedUser(authentication.BaseUser):
-    def __init__(self):
-        self._permission_context: Union[None, Any] = None
+    def __init__(
+        self,
+        requested_resource: None | str = None,
+    ):
+        self._requested_resource: None | str = requested_resource
 
     @property
     def is_authenticated(self) -> bool:
@@ -20,19 +23,20 @@ class UnauthenticatedUser(authentication.BaseUser):
         return ""
 
     @property
-    def permission_context(self) -> Any:
-        return self._permission_context
-
-    @permission_context.setter
-    def permission_context(self, value):
-        self._permission_context = value
+    def requested_resource(self) -> Any:
+        return self._requested_resource
 
 
 class AuthenticatedUser(authentication.BaseUser):
-    def __init__(self, user: str):
-        self._user: str = user
-        self._full_name = f"{self._user.first_name} {self._user.last_name}"
-        self._permission_context: Union[None, Any] = None
+    def __init__(
+        self,
+        name: str,
+        requested_resource: None | str = None,
+        resource_owner: None | bool = None,
+    ):
+        self.name: str = name
+        self._requested_resource: None | str = requested_resource
+        self._resource_owner: None | bool = resource_owner
 
     @property
     def is_authenticated(self) -> bool:
@@ -40,20 +44,20 @@ class AuthenticatedUser(authentication.BaseUser):
 
     @property
     def display_name(self) -> str:
-        return self._full_name
+        return self.name
 
     @property
     def identity(self) -> str:
-        return self._user
+        return self.name
 
     @property
     def user_detail(self) -> Any:
-        return self._user
+        return self.name
 
     @property
-    def permission_context(self) -> Any:
-        return self._permission_context
+    def requested_resource(self) -> Any:
+        return self._requested_resource
 
-    @permission_context.setter
-    def permission_context(self, value):
-        self._permission_context = value
+    @property
+    def resource_owner(self) -> None | bool:
+        return self._resource_owner

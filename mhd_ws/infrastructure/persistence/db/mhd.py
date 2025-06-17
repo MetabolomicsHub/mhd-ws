@@ -15,8 +15,9 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from mhd_ws.infrastructure.persistence.db import Base
 
 
 class IntEnum(TypeDecorator):
@@ -53,18 +54,6 @@ class StrEnum(TypeDecorator):
 
     def process_result_value(self, value, dialect):
         return self._enumtype(value)
-
-
-class Base(AsyncAttrs, DeclarativeBase):
-    @classmethod
-    def get_field_alias(cls, name: str) -> str:
-        alias_exceptions = cls.get_field_alias_exceptions()
-        if name in alias_exceptions:
-            return alias_exceptions[name]
-        return name
-
-    def get_field_alias_exceptions(self):
-        return {}
 
 
 metadata = Base.metadata

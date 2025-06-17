@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import json
 from logging import getLogger
+import re
 from typing import Any, OrderedDict
 
 import jsonschema
@@ -29,6 +30,7 @@ from mhd_ws.infrastructure.persistence.db.mhd import (
     DatasetRevisionStatus,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.models import (
+    FileValidationModel,
     CreateDatasetRevisionModel,
     DatasetRevisionError,
     TaskResult,
@@ -45,44 +47,6 @@ def json_path(field_path):
 
 
 def validate_announcement_file(announcement_file_json: dict[str, Any]):
-    # profile = AnnouncementBaseProfile.model_validate(announcement_file_json)
-    # validator = MhdAnnouncementFileValidator(profile.schema_name, profile.profile_uri)
-    # validator = MhdAnnouncementFileValidator()
-    # all_errors = validator.validate(announcement_file_json)
-
-    # errors = [
-    #     (json_path(x.absolute_path), exceptions.best_match([x])) for x in all_errors
-    # ]
-    # profile_validator = ProfileValidator()
-
-    # def add_all_leaves(
-    #     err: jsonschema.ValidationError, leaves: list[jsonschema.ValidationError]
-    # ):
-    #     if err.validator in profile_validator.validators:
-    #         if not err.context:
-    #             leaves.append((err.absolute_path, err))
-    #         else:
-    #             for x in err.context:
-    #                 add_all_leaves(x, leaves)
-
-    # errors: OrderedDict = OrderedDict()
-    # number = 0
-    # for idx, x in enumerate(all_errors, start=1):
-    #     match = exceptions.best_match([x])
-    #     error = (json_path(x.absolute_path), match.message)
-
-    #     if match.validator in profile_validator.validators:
-    #         leaves = []
-    #         add_all_leaves(match, leaves)
-    #         for leaf in leaves:
-    #             key = json_path(leaf[0])
-    #             value = leaf[1].message
-    #             number += 1
-    #             errors[str(number)] = f"{key}: {value}"
-    #     else:
-    #         number += 1
-    #         errors[str(number)] = f"{error[0]}: {error[1]}"
-    # return errors
     validator = MhdAnnouncementFileValidator()
 
     all_errors = validator.validate(announcement_file_json)
@@ -152,38 +116,6 @@ def validate_common_dataset_file(file_json: dict[str, Any]):
     )
 
     return errors
-
-    # errors = {json_path(x.absolute_path): create_message(x) for x in validations}
-    # if errors:
-    #     logger.info(json.dumps(errors, indent=2))
-    # return errors
-    # print(errors)
-    # for error in errors:
-    #     expression = jsonpath_ng.parse(error[0])
-    #     search_results = expression.find(announcement_file_json)
-    #     result = [x.value for x in search_results]
-    #     if result:
-    #         print(result)
-
-
-# def create_message(error: jsonschema.ValidationError) -> str:
-#     if not error:
-#         return "validation error"
-#     # name = error.validator
-#     message = error.message
-#     jsonpath_str = ".".join(
-#         [x if isinstance(x, str) else f"[{x}]" for x in error.absolute_path]
-#     )
-
-#     message = f"{message}"
-#     if error.context:
-#         sub_messages = []
-#         for x in error.context:
-#             sub_messages.append(create_message(x))
-#         if not jsonpath_str:
-#             return message + f" [{', '.join(sub_messages)}]"
-#         return message + f" [{jsonpath_str}: {', '.join(sub_messages)}]"
-#     return message
 
 
 @inject
@@ -374,6 +306,7 @@ def add_submission_task(
 async def announcement_file_validation(
     repository_id: str,
     announcement_file_json: dict[str, Any],
+    filename: str,
     task_id: str,
     cache_service: CacheService = Provide["services.cache_service"],
 ):
@@ -383,39 +316,68 @@ async def announcement_file_validation(
     file_cache_key = f"new-announcement-validation:{repository_id}:{file_sha256}"
     task_key = f"new-file-validation-task:{repository_id}:{task_id}"
     message = None
+    input_file_info = FileValidationModel(
+        task_id=task_id,
+        file=filename,
+        repository_name=announcement_file_json.get("repository_name", ""),
+        repository_id=repository_id,
+        schema_uri=announcement_file_json.get("$schema", ""),
+        profile_uri=announcement_file_json.get("profile_uri", ""),
+        mhd_identifier=announcement_file_json.get("mhd_identifier", ""),
+        repository_identifier=announcement_file_json.get("repository_identifier", ""),
+        repository_revision=announcement_file_json.get("repository_revision", None),
+        repository_revision_datetime=announcement_file_json.get(
+            "repository_revision_datetime", None
+        ),
+    )
+    errors = {}
     try:
         logger.info("Checking announcement file for the task %s", task_id)
 
         errors = validate_announcement_file(announcement_file_json)
         if errors:
             logger.error("Announcement file has error for the task %s", task_id)
-            return TaskResult[CreateDatasetRevisionModel](
-                success=False, message="Announcement file is not valid.", errors=errors
+            result = TaskResult[FileValidationModel](
+                success=False,
+                message="Announcement file is not valid.",
+                errors=errors,
+                result=input_file_info,
             ).model_dump()
+            return result
         logger.info("Announcement file schema is validated for the task %s", task_id)
 
         logger.info("Checked announcement file schema for the task %s", task_id)
-        return TaskResult[CreateDatasetRevisionModel](
-            success=True,
-            message="Announcement file is valid.",
+        result = TaskResult[FileValidationModel](
+            success=True, message="Announcement file is valid.", result=input_file_info
         ).model_dump()
+
+        return result
 
     except jsonschema.ValidationError as ex:
         message = f"Failed to validate file content for the task {task_id}"
         logger.error(message)
         logger.exception(ex)
+        errors["validation"] = message
         # raise ex
     except Exception as ex:
         message = f"Failed to get file content for the task {task_id}"
         logger.error(message)
         logger.exception(ex)
+        errors["failure"] = message
         # raise ex
     finally:
         await cache_service.delete_key(file_cache_key)
         await cache_service.delete_key(task_key)
-    return TaskResult[CreateDatasetRevisionModel](
-        success=False, message=message
+
+    result = TaskResult[FileValidationModel](
+        success=False, message=message, errors=errors, result=input_file_info
     ).model_dump()
+    return result
+
+
+@async_task(app_name="mhd", queue="submission")
+def announcement_file_validation_failure(result: dict[str, Any]) -> str:
+    return "Announcement file validation task failed."
 
 
 @async_task(app_name="mhd", queue="submission")
@@ -423,12 +385,14 @@ def announcement_file_validation_task(
     *,
     repository_id: str,
     announcement_file_json: dict[str, Any],
+    filename: str | None = None,
     task_id: str,
     **kwargs,
 ) -> str:
     coroutine = announcement_file_validation(
         repository_id=repository_id,
         announcement_file_json=announcement_file_json,
+        filename=filename or "",
         task_id=task_id,
     )
     return asyncio.run(coroutine)
@@ -436,8 +400,9 @@ def announcement_file_validation_task(
 
 @inject
 async def common_dataset_file_validation(
-    repository_id: str,
+    repository_id: int,
     file_json: dict[str, Any],
+    filename: str | None,
     task_id: str,
     cache_service: CacheService = Provide["services.cache_service"],
 ):
@@ -447,20 +412,39 @@ async def common_dataset_file_validation(
     file_cache_key = f"new-file-validation:{repository_id}:{file_sha256}"
     task_key = f"new-file-task:{repository_id}:{task_id}"
     message = None
+    input_file_info = FileValidationModel(
+        task_id=task_id,
+        file=filename or "",
+        repository_name=file_json.get("repository_name", ""),
+        repository_id=repository_id,
+        schema_uri=file_json.get("$schema", ""),
+        profile_uri=file_json.get("profile_uri", ""),
+        mhd_identifier=file_json.get("mhd_identifier", ""),
+        repository_identifier=file_json.get("repository_identifier", ""),
+        repository_revision=file_json.get("repository_revision", None),
+        repository_revision_datetime=file_json.get(
+            "repository_revision_datetime", None
+        ),
+    )
+
     try:
         logger.info("Checking file with the task %s", task_id)
 
         errors = validate_common_dataset_file(file_json)
         if errors:
             logger.error("File has errors with the task %s", task_id)
-            return TaskResult[CreateDatasetRevisionModel](
-                success=False, message="File is not valid.", errors=errors
+            return TaskResult[FileValidationModel](
+                success=False,
+                message="File is not valid.",
+                errors=errors,
+                result=input_file_info,
             ).model_dump()
         logger.info("File schema is validated with the task %s", task_id)
 
-        return TaskResult[CreateDatasetRevisionModel](
+        return TaskResult[FileValidationModel](
             success=True,
             message="File is valid.",
+            result=input_file_info,
         ).model_dump()
 
     except jsonschema.ValidationError as ex:
@@ -476,22 +460,24 @@ async def common_dataset_file_validation(
     finally:
         await cache_service.delete_key(file_cache_key)
         await cache_service.delete_key(task_key)
-    return TaskResult[CreateDatasetRevisionModel](
-        success=False, message=message
+    return TaskResult[FileValidationModel](
+        success=False, message=message, result=input_file_info, errors={"failure": message}
     ).model_dump()
 
 
 @async_task(app_name="mhd", queue="submission")
 def common_dataset_file_validation_task(
     *,
-    repository_id: str,
+    repository_id: int,
     file_json: dict[str, Any],
+    filename: str | None = None,
     task_id: str,
     **kwargs,
 ) -> str:
     coroutine = common_dataset_file_validation(
         repository_id=repository_id,
         file_json=file_json,
+        filename=filename or "",
         task_id=task_id,
     )
     return asyncio.run(coroutine)

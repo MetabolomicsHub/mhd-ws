@@ -29,15 +29,15 @@ def upgrade() -> None:
     create_repository_table(unique_identifier_seq)
     create_api_token_table(unique_identifier_seq)
     create_dataset_table(unique_identifier_seq)
-    create_annoucement_file_table(unique_identifier_seq)
+    create_announcement_file_table(unique_identifier_seq)
     create_dataset_revision_table(unique_identifier_seq)
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    e_identifier_seq = Sequence("unique_identifier_seq")
+    e_identifier_seq = sa.schema.Sequence("unique_identifier_seq")
     op.drop_table("dataset_revision", if_exists=True)
-    op.drop_table("annoucement_file", if_exists=True)
+    op.drop_table("announcement_file", if_exists=True)
     op.drop_table("dataset", if_exists=True)
     op.drop_table("api_token", if_exists=True)
     op.drop_table("repository", if_exists=True)
@@ -211,7 +211,7 @@ def create_dataset_table(unique_identifier_seq: sa.schema.Sequence):
     )
 
 
-def create_annoucement_file_table(unique_identifier_seq: sa.schema.Sequence):
+def create_announcement_file_table(unique_identifier_seq: sa.schema.Sequence):
     op.create_table(
         "announcement_file",
         sa.Column(

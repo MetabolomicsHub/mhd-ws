@@ -47,7 +47,7 @@ class DefaultLogFilter(Filter):
             record.request_id = model.request_id
             record.task_id = model.task_id
         else:
-            record.user_id = 0
+            record.user_id = "-"
             record.route_path = "-"
             record.resource_id = "-"
             record.client = "-"

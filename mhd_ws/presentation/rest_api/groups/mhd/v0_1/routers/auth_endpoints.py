@@ -6,17 +6,16 @@ from uuid import uuid4
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, Header, Path, Query, Response, status
-from metabolights_utils.common import CamelCaseModel
 from pydantic import Field, field_serializer
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from mhd_ws.application.services.interfaces.cache_service import CacheService
+from mhd_ws.domain.shared.model import MhdBaseModel
+from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
     ApiToken,
     ApiTokenStatus,
 )
-from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db import get_db
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.dependencies import (
     RepositoryValidation,
     validate_repository_token,
@@ -35,7 +34,7 @@ If not defined, the default expiration time will be set to 1 year from the reque
 """
 
 
-class ApiTokenRequestResponse(CamelCaseModel):
+class ApiTokenRequestResponse(MhdBaseModel):
     api_token_name: Annotated[
         None | str,
         Field(title="Unique API token name", description="Unique API token name"),
@@ -52,7 +51,7 @@ class ApiTokenRequestResponse(CamelCaseModel):
     ] = None
 
 
-class ApiTokenModel(CamelCaseModel):
+class ApiTokenModel(MhdBaseModel):
     name: Annotated[
         str,
         Field(title="API token name", description="API token name"),
@@ -98,7 +97,7 @@ class ApiTokenModel(CamelCaseModel):
         return value
 
 
-class ApiTokensResponse(CamelCaseModel):
+class ApiTokensResponse(MhdBaseModel):
     repository_name: Annotated[
         None | str, Field(title="Repository name", description="Repository name")
     ] = (None,)
@@ -111,7 +110,7 @@ class ApiTokensResponse(CamelCaseModel):
     ] = (None,)
 
 
-class ApiTokenValidationResponse(CamelCaseModel):
+class ApiTokenValidationResponse(MhdBaseModel):
     valid: Annotated[
         bool,
         Field(
@@ -125,7 +124,7 @@ class ApiTokenValidationResponse(CamelCaseModel):
     ] = None
 
 
-class ApiTokenInvalidationResponse(CamelCaseModel):
+class ApiTokenInvalidationResponse(MhdBaseModel):
     invalidated: Annotated[
         bool,
         Field(
@@ -180,20 +179,23 @@ async def request_new_api_token(
             alias="x-expiration-time",
         ),
     ] = None,
-    session: Annotated[None | AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     repository_validation: Annotated[
         None | RepositoryValidation, Depends(validate_repository_token)
     ] = None,
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
 ):
-    if not repository_validation.repository:
+    if not repository_validation or not repository_validation.repository:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return ApiTokenRequestResponse(message=repository_validation.message)
+        return ApiTokenRequestResponse(
+            message=(
+                repository_validation.message or ""
+                if repository_validation
+                else "Repository validation failed."
+            )
+        )
 
     api_token = None
-    async with session:
+    async with db_client.session() as session:
         stmt = select(ApiToken).where(ApiToken.name == name)
         result = await session.execute(stmt)
         api_token = result.scalar_one_or_none()
@@ -218,7 +220,7 @@ async def request_new_api_token(
             description=description,
         )
         try:
-            async with session:
+            async with db_client.session() as session:
                 session.add(token)
                 await session.commit()
                 await session.refresh(token)
@@ -264,7 +266,7 @@ async def get_api_tokens(
             description="API token name.",
         ),
     ] = None,
-    session: Annotated[None | AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     repository_validation: Annotated[
         None | RepositoryValidation, Depends(validate_repository_token)
     ] = None,
@@ -295,7 +297,7 @@ async def get_api_tokens(
             )
 
     stmt = query.order_by(ApiToken.name.asc())
-    async with session:
+    async with db_client.session() as session:
         result = await session.execute(stmt)
         db_api_tokens = result.scalars().all()
         api_tokens = [
@@ -335,20 +337,20 @@ async def delete_api_token(
             description="API token name that will be invalidated.",
         ),
     ],
-    session: Annotated[None | AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     repository_validation: Annotated[
         None | RepositoryValidation, Depends(validate_repository_token)
     ] = None,
 ):
-    repo = repository_validation.repository
+    repo = repository_validation.repository if repository_validation else None
+
     if not repo:
+        message = repository_validation.message if repository_validation else ""
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return ApiTokenInvalidationResponse(
-            invalidated=False, message=repository_validation.message
-        )
+        return ApiTokenInvalidationResponse(invalidated=False, message=message)
     api_token = None
     try:
-        async with session:
+        async with db_client.session() as session:
             stmt = select(ApiToken).where(ApiToken.name == name)
             result = await session.execute(stmt)
             api_token = result.scalar_one_or_none()
@@ -393,19 +395,22 @@ async def check_api_token(
     cache_service: CacheService = Depends(
         Provide["services.cache_service"]
     ),  # noqa: FAST002
-    session: Annotated[None | AsyncSession, Depends(get_db)] = None,
+    db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     repository_validation: Annotated[
         None | RepositoryValidation, Depends(validate_repository_token)
     ] = None,
 ):
-    repo = repository_validation.repository
+    repo = repository_validation.repository if repository_validation else None
     if not repo:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return ApiTokenInvalidationResponse(
-            invalidated=False, message=repository_validation.message
+        message = (
+            repository_validation.message
+            if repository_validation
+            else "Invalid repository."
         )
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return ApiTokenValidationResponse(valid=False, message=message)
     token_hash = hashlib.sha256(api_token.encode()).hexdigest()
-    async with session:
+    async with db_client.session() as session:
         stmt = select(ApiToken).where(
             ApiToken.repository_id == repo.id,
             ApiToken.token_hash == token_hash,

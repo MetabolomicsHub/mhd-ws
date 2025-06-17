@@ -1,13 +1,11 @@
 import logging
-import re
 import time
-from typing import Union
+from typing import Any, Union
 
 from asgi_correlation_id import context
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from starlette.authentication import AuthCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from mhd_ws.application.context.request_tracker import RequestTracker
@@ -18,28 +16,35 @@ from mhd_ws.domain.entities.auth_user import (
 )
 from mhd_ws.domain.exceptions.auth import AuthenticationError, AuthorizationError
 from mhd_ws.presentation.rest_api.core.responses import APIErrorResponse
+from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 
 
 class AuthorizedEndpoint(BaseModel):
     prefix: str
-    scopes: set[str]
 
 
 class AuthorizationMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
-        app,
+        app: ASGIApp,
         request_tracker: RequestTracker,
-        authorized_endpoints: Union[None, list[AuthorizedEndpoint]] = None,
+        api_token_authorizations: Union[None, list[dict[str, Any]]] = None,
+        signed_jwt_authorizations: Union[None, list[dict[str, Any]]] = None,
     ) -> None:
+
         super().__init__(app)
         self.request_tracker = request_tracker
 
-        self.authorized_endpoints = (
-            [AuthorizedEndpoint.model_validate(x) for x in authorized_endpoints]
-            if authorized_endpoints
+        self.api_token_authorizations = (
+            [AuthorizedEndpoint.model_validate(x) for x in api_token_authorizations]
+            if api_token_authorizations
+            else []
+        )
+        self.signed_jwt_authorizations = (
+            [AuthorizedEndpoint.model_validate(x) for x in signed_jwt_authorizations]
+            if signed_jwt_authorizations
             else []
         )
 
@@ -47,20 +52,26 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         route_path = "/" + str(request.url).removeprefix(str(request.base_url))
         route_path, _, _ = route_path.partition("?")
-        auth: AuthCredentials = request.auth
         user: Union[AuthenticatedUser, UnauthenticatedUser] = request.user
-        client_host = request.client.host
-        resource_id = None
+        client_host = request.client.host if request.client else ""
         method = request.method
-        match = re.match(r".*/(REQ[1-9][0-9]*|MTBLS[1-9][0-9]*)(/.*|$)", route_path)
-        if match:
-            resource_id = match.groups()[0]
-        try:
-            self.set_request_track(user, client_host, route_path, resource_id)
-            self.check_initial_authorization(route_path, user, client_host, auth)
 
-            if user.is_authenticated:
-                access_request_message = f"User {user.user_detail.id_} requests {method} {route_path} from host/IP {client_host}."
+        try:
+
+            # if api_token_authorization_required:
+            #     self.check_initial_authorization(route_path, user, client_host, auth)
+            self.set_request_track(
+                user, client_host, route_path, user.requested_resource
+            )
+            if isinstance(user, AuthenticatedUser):
+                access_request_message = f"User {user.display_name} requests {method} {route_path} from host/IP {client_host}."
+                if user.requested_resource:
+                    access_request_message += (
+                        f" Target resource id: {user.requested_resource}"
+                    )
+                if user.requested_resource and not user.resource_owner:
+                    logger.warning(access_request_message)
+                    raise AuthorizationError(access_request_message)
                 # if resource_id:
                 # permission_context: StudyPermissionContext = (
                 #     await self.authorization_service.get_user_resource_permission(
@@ -72,6 +83,14 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
                 # )
                 # user.permission_context = permission_context
             else:
+                access_request_message = f"Unauthenticated user requests {method} {route_path} from host/IP {client_host}."
+                if user.requested_resource:
+                    access_request_message += (
+                        f" Target resource id: {user.requested_resource}"
+                    )
+                if user.requested_resource:
+
+                    raise AuthorizationError(access_request_message)
                 # if resource_id:
                 #     permission_context: StudyPermissionContext = (
                 #         await self.authorization_service.get_user_resource_permission(
@@ -82,17 +101,12 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
                 #         permission_context, client_host, route_path
                 #     )
                 #     user.permission_context = permission_context
-                access_request_message = f"Unauthenticated user requests {method} {route_path} from host/IP {client_host}."
-            if resource_id:
-                access_request_message += f" Target resource id: {resource_id}"
-            logger.debug(access_request_message)
 
+            logger.debug(access_request_message)
             response = await call_next(request)
         except AuthorizationError as ex:
             if user.is_authenticated:
-                message = (
-                    f"Authorization error for user {user.user_detail.id_}: {str(ex)}"
-                )
+                message = f"Authorization error for user {user.display_name}: {str(ex)}"
             else:
                 message = f"Authorization error: {str(ex)}"
             logger.debug(message)
@@ -103,7 +117,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         except AuthenticationError as ex:
             if user.is_authenticated:
                 message = (
-                    f"Authentication error for user {user.user_detail.id_}: {str(ex)}"
+                    f"Authentication error for user {user.display_name}: {str(ex)}"
                 )
                 logger.debug(message)
             else:
@@ -114,7 +128,9 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_403_FORBIDDEN,
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        self.set_request_track(request.user, client_host, route_path, resource_id)
+        self.set_request_track(
+            request.user, client_host, route_path, user.requested_resource
+        )
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = str(process_time)
         return response
@@ -138,41 +154,6 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
     #         logger.error(error_log_message)
     #         raise AuthorizationError(error_log_message)
 
-    def check_initial_authorization(
-        self,
-        route_path: str,
-        user: Union[AuthenticatedUser, UnauthenticatedUser],
-        client_host: str,
-        auth: AuthCredentials,
-    ):
-        scope_match = False
-        authorized_path = False
-        for authorized_endpoint in self.authorized_endpoints:
-            if route_path.startswith(authorized_endpoint.prefix):
-                authorized_path = True
-                if authorized_endpoint.scopes.intersection(set(auth.scopes)):
-                    scope_match = True
-                    break
-
-        if authorized_path and not scope_match:
-            if user.is_authenticated:
-                error_log_message = (
-                    "User %s from host %s has no permission to access %s",
-                    user.user_detail.id_,
-                    client_host,
-                    route_path,
-                )
-                logger.error(error_log_message)
-                raise AuthorizationError(error_log_message)
-            logger.error(
-                "Unauthenticated user requested the authorized %s resource from host %s",
-                route_path,
-                client_host,
-            )
-            raise AuthenticationError(
-                f"Authentication is required to access {route_path}."
-            )
-
     def set_request_track(
         self,
         user: Union[UnauthenticatedUser, AuthenticatedUser],
@@ -184,11 +165,11 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         self.request_tracker.client_var.set(client_host)
 
         if user.is_authenticated:
-            self.request_tracker.user_id_var.set(user.user_detail.id_)
+            self.request_tracker.user_id_var.set(user.display_name)
         else:
-            self.request_tracker.user_id_var.set(0)
+            self.request_tracker.user_id_var.set("-")
 
         self.request_tracker.resource_id_var.set(resource_id if resource_id else "-")
         self.request_tracker.task_id_var.set("-")
-
-        self.request_tracker.request_id_var.set(context.correlation_id.get())
+        corr_id = context.correlation_id.get()
+        self.request_tracker.request_id_var.set(corr_id or "-")

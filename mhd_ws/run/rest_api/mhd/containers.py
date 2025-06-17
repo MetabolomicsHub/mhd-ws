@@ -1,3 +1,4 @@
+import os
 from logging import config as logging_config
 
 from dependency_injector import containers, providers
@@ -17,11 +18,7 @@ from mhd_ws.infrastructure.cache.redis.redis_impl import RedisCacheImpl
 from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
     CeleryAsyncTaskService,
 )
-from mhd_ws.presentation.rest_api.core.core_router import (
-    set_oauth2_redirect_endpoint,
-)
 from mhd_ws.presentation.rest_api.core.models import ApiServerConfiguration
-
 from mhd_ws.run.config import ModuleConfiguration
 from mhd_ws.run.rest_api.mhd.base_container import (
     GatewaysContainer,
@@ -33,7 +30,7 @@ class MhdCoreContainer(containers.DeclarativeContainer):
 
     logging_config = providers.Resource(
         logging_config.dictConfig,
-        config=config.run.mhd.logging,
+        config=config.run.mhd_ws.logging,
     )
     async_task_registry = providers.Resource(get_async_task_registry)
 
@@ -128,9 +125,16 @@ class MhdServicesContainer(containers.DeclarativeContainer):
     # )
 
 
+MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config.yaml")
+MHD_CONFIG_SECRETS_FILE = os.getenv("MHD_CONFIG_SECRETS_FILE", "config-secrets.yaml")
+
+print(f"Using MHD config file: {MHD_CONFIG_FILE}")
+print(f"Using MHD secrets file: {MHD_CONFIG_SECRETS_FILE}")
+
+
 class MhdApplicationContainer(containers.DeclarativeContainer):
-    config = providers.Configuration(yaml_files=["config-mhd.yaml"])
-    secrets = providers.Configuration(yaml_files=["config-secrets-mhd.yaml"])
+    config = providers.Configuration(yaml_files=[MHD_CONFIG_FILE])
+    secrets = providers.Configuration(yaml_files=[MHD_CONFIG_SECRETS_FILE])
     core = providers.Container(
         MhdCoreContainer,
         config=config,
@@ -140,12 +144,6 @@ class MhdApplicationContainer(containers.DeclarativeContainer):
         GatewaysContainer,
         config=config.gateways,
     )
-
-    # repositories = providers.Container(
-    #     RepositoriesContainer,
-    #     config=config,
-    #     gateways=gateways,
-    # )
 
     services = providers.Container(
         MhdServicesContainer,
@@ -158,16 +156,12 @@ class MhdApplicationContainer(containers.DeclarativeContainer):
 
     module_config: ModuleConfiguration = providers.Resource(
         create_config_from_dict,
-        ModuleConfiguration,
-        config.run.mhd.module_config,
+        config_class=ModuleConfiguration,
+        config_dict=config.run.mhd_ws.module_config,
     )
 
     api_server_config: ApiServerConfiguration = providers.Resource(
         create_config_from_dict,
-        ApiServerConfiguration,
-        config.run.mhd.api_server_config,
-    )
-
-    oauth2_endpoint = providers.Resource(
-        set_oauth2_redirect_endpoint, api_server_config
+        config_class=ApiServerConfiguration,
+        config_dict=config.run.mhd_ws.api_server_config,
     )

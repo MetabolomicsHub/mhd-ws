@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class RequestTrackerModel(BaseModel):
-    user_id: int = 0
+    user_id: str = ""
     route_path: str = ""
     resource_id: str = ""
     client: str = ""
@@ -15,7 +15,7 @@ class RequestTrackerModel(BaseModel):
 
 class RequestTracker:
     def __init__(self):
-        self.user_id_var: ContextVar[int] = ContextVar("user_id")
+        self.user_id_var: ContextVar[str] = ContextVar("user_id")
         self.route_path_var: ContextVar[str] = ContextVar("route_path")
         self.resource_id_var: ContextVar[str] = ContextVar("resource_id")
         self.client_var: ContextVar[str] = ContextVar("client")
@@ -48,7 +48,7 @@ class RequestTracker:
         )
 
     def reset_request_tracker(self):
-        self.user_id_var.set(0)
+        self.user_id_var.set("-")
         self.resource_id_var.set("-")
         self.client_var.set("-")
         self.route_path_var.set("-")
@@ -56,7 +56,7 @@ class RequestTracker:
         self.task_id_var.set("-")
 
     def get_request_tracker_model(self) -> RequestTrackerModel:
-        user_id = 0
+        user_id = "-"
         try:
             user_id = self.user_id_var.get()
         except LookupError:
