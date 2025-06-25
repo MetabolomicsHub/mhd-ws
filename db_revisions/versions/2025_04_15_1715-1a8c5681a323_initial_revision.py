@@ -241,7 +241,6 @@ def create_announcement_file_table(unique_identifier_seq: sa.schema.Sequence):
 
 
 def create_dataset_revision_table(unique_identifier_seq: sa.schema.Sequence):
-
     op.create_table(
         "dataset_revision",
         sa.Column(

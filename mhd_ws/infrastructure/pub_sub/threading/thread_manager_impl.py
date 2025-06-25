@@ -236,10 +236,14 @@ class ThreadingAsyncTaskService(AsyncTaskService):
                 raise Exception(f"Task {desc.task_name} is not registered.")
         on_success_task_method = None
         if on_success_task:
-            on_success_task_method = self.app_tasks[on_success_task.task_name].task_method
+            on_success_task_method = self.app_tasks[
+                on_success_task.task_name
+            ].task_method
         on_failure_task_method = None
         if on_failure_task:
-            on_failure_task_method = self.app_tasks[on_failure_task.task_name].task_method
+            on_failure_task_method = self.app_tasks[
+                on_failure_task.task_name
+            ].task_method
         return ThreadingAsyncTaskExecutor(
             task_method=self.app_tasks[task_description.task_name].task_method,
             task_name=task_description.task_name,

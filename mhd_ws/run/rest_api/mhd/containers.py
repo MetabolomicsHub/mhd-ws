@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from logging import config as logging_config
 
 from dependency_injector import containers, providers
@@ -23,6 +25,8 @@ from mhd_ws.run.config import ModuleConfiguration
 from mhd_ws.run.rest_api.mhd.base_container import (
     GatewaysContainer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MhdCoreContainer(containers.DeclarativeContainer):
@@ -125,11 +129,17 @@ class MhdServicesContainer(containers.DeclarativeContainer):
     # )
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
+    datefmt="%d/%b/%Y %H:%M:%S",
+    stream=sys.stdout,
+)
 MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config.yaml")
 MHD_CONFIG_SECRETS_FILE = os.getenv("MHD_CONFIG_SECRETS_FILE", "config-secrets.yaml")
 
-print(f"Using MHD config file: {MHD_CONFIG_FILE}")
-print(f"Using MHD secrets file: {MHD_CONFIG_SECRETS_FILE}")
+logger.info("Using MHD config file: %s", MHD_CONFIG_FILE)
+logger.info("Using MHD secrets file: %s", MHD_CONFIG_SECRETS_FILE)
 
 
 class MhdApplicationContainer(containers.DeclarativeContainer):

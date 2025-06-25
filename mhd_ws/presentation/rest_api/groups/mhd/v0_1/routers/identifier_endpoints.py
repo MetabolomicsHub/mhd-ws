@@ -101,9 +101,9 @@ class IdentifiersResponse(BaseModel):
 
 
 repository_id_description = """
-A unique dataset identifier created by repository. 
+A unique dataset identifier created by repository.
 (e.g., repository accession number, database id, dataset ticket id, etc.)
-This unique identifier is meaningful only within the repository and 
+This unique identifier is meaningful only within the repository and
 is used to define a one-to-one link between the repository dataset and MetabolomicsHub.
 """
 
@@ -137,9 +137,7 @@ async def request_new_identifier(
             alias="x-dataset-repository-identifier",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ):
     if not repository:
@@ -256,9 +254,7 @@ async def get_identifiers(
             description="Dataset status.",
         ),
     ] = None,
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ):
     if not repository:

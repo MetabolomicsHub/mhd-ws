@@ -27,10 +27,10 @@ router = APIRouter(tags=["API Tokens"], prefix="/v0_1")
 
 
 expiration_time_description = """
-API token will be invalid after expiration time. 
-Its format must comply with ISO 8601 datetime with UTC timezone. 
+API token will be invalid after expiration time.
+Its format must comply with ISO 8601 datetime with UTC timezone.
 Example: 2026-03-18T11:40:22Z, 2027-03-18T11:40:22.519222Z
-If not defined, the default expiration time will be set to 1 year from the request time. 
+If not defined, the default expiration time will be set to 1 year from the request time.
 """
 
 
@@ -392,9 +392,7 @@ async def check_api_token(
             alias="x-api-token",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     repository_validation: Annotated[
         None | RepositoryValidation, Depends(validate_repository_token)

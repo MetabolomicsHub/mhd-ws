@@ -7,16 +7,15 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 from mhd_ws.application.context.request_tracker import RequestTracker
-
 from mhd_ws.domain.entities.auth_user import (
     AuthenticatedUser,
     UnauthenticatedUser,
 )
 from mhd_ws.domain.exceptions.auth import AuthenticationError, AuthorizationError
 from mhd_ws.presentation.rest_api.core.responses import APIErrorResponse
-from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,6 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         api_token_authorizations: Union[None, list[dict[str, Any]]] = None,
         signed_jwt_authorizations: Union[None, list[dict[str, Any]]] = None,
     ) -> None:
-
         super().__init__(app)
         self.request_tracker = request_tracker
 
@@ -57,7 +55,6 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         method = request.method
 
         try:
-
             # if api_token_authorization_required:
             #     self.check_initial_authorization(route_path, user, client_host, auth)
             self.set_request_track(
@@ -89,7 +86,6 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
                         f" Target resource id: {user.requested_resource}"
                     )
                 if user.requested_resource:
-
                     raise AuthorizationError(access_request_message)
                 # if resource_id:
                 #     permission_context: StudyPermissionContext = (

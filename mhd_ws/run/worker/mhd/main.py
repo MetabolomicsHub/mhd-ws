@@ -7,9 +7,6 @@ from celery.signals import setup_logging
 from dependency_injector.wiring import Provide, inject
 
 import mhd_ws
-from mhd_ws.application.services.interfaces.async_task.utils import (
-    get_async_task_registry,
-)
 from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
     CeleryAsyncTaskService,
 )
@@ -69,7 +66,7 @@ def update_container(
 
 
 def get_worker_app(initial_container: MhdWorkerApplicationContainer):
-    async_task_registry = get_async_task_registry()
+    # async_task_registry = get_async_task_registry()
     manager: CeleryAsyncTaskService = initial_container.services.async_task_service()
     # rc = initial_container.gateways.config.cache.redis.connection()
     # redis_connection_provider = RedisConnectionProvider(rc)

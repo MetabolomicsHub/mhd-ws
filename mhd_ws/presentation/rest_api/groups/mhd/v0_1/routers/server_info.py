@@ -5,10 +5,11 @@ from typing import Annotated
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Header, Response, status
 from fastapi.responses import StreamingResponse
-from mhd_ws.domain.shared.model import MhdBaseModel
 from mhd_model.model import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
 from mhd_model.schema_utils import load_mhd_json_schema
 from pydantic import Field
+
+from mhd_ws.domain.shared.model import MhdBaseModel
 
 logger = getLogger(__name__)
 
@@ -66,7 +67,6 @@ async def get_profile(
         ),
     ],
 ):
-
     file_name, file_content = load_mhd_json_schema(uri)
     if not file_content:
         response.status_code == status.HTTP_400_BAD_REQUEST

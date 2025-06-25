@@ -4,8 +4,6 @@ from logging import getLogger
 from typing import Annotated
 
 import jwt
-from dependency_injector.wiring import Provide, inject
-from fastapi import Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload

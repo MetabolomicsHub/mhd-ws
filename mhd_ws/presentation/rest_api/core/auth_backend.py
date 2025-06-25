@@ -33,7 +33,6 @@ class AuthBackend(AuthenticationBackend):
         api_token_authorizations: None | list[dict[str, Any]] = None,
         signed_jwt_authorizations: None | list[dict[str, Any]] = None,
     ) -> None:
-
         self.db_client = db_client
 
         self.api_token_authorizations = (
@@ -73,9 +72,9 @@ class AuthBackend(AuthenticationBackend):
                 logger.error("Signed JWT token is missing.")
                 raise AuthenticationError("Signed JWT token is missing")
 
-            validation: None | RepositoryValidation = (
-                await validate_repository_signed_jwt_token(auth, self.db_client)
-            )
+            validation: (
+                None | RepositoryValidation
+            ) = await validate_repository_signed_jwt_token(auth, self.db_client)
 
             if not validation or not validation.repository:
                 logger.error("Repository check failure.")

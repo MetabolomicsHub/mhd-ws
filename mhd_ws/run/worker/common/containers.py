@@ -9,7 +9,6 @@ from mhd_ws.application.services.interfaces.async_task.utils import (
     get_async_task_registry,
 )
 from mhd_ws.application.services.interfaces.cache_service import CacheService
-
 from mhd_ws.domain.domain_services.configuration_generator import (
     create_config_from_dict,
 )
@@ -17,7 +16,6 @@ from mhd_ws.infrastructure.cache.redis.redis_impl import RedisCacheImpl
 from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
     CeleryAsyncTaskService,
 )
-
 from mhd_ws.run.config import ModuleConfiguration
 from mhd_ws.run.rest_api.mhd.base_container import (
     GatewaysContainer,
