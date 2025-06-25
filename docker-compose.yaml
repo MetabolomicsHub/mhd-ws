@@ -41,37 +41,36 @@ services:
       start_period: 5s
       timeout: 2s
 
-  # mhd_ws_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.ws_worker
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   environment:
-  #     PYTHONPATH: /app
-  #     MHD_CONFIG_FILE: /app/config.yaml
-  #     MHD_CONFIG_SECRETS_FILE: /app/config-secrets.yaml
-  #   command: python mhd_ws/run/worker/mhd/main.py
+  mhd_ws_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.ws_worker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PYTHONPATH: /app
+      MHD_CONFIG_FILE: /app/config.yaml
+      MHD_CONFIG_SECRETS_FILE: /app/config-secrets.yaml
+    command: python mhd_ws/run/worker/mhd/main.py
 
-  # mhd_ws:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.ws
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     mhd_ws_worker: 
-  #       condition: service_started
-  #   environment:
-  #     PYTHONPATH: /app
-  #     MHD_CONFIG_FILE: /app/config.yaml
-  #     MHD_CONFIG_SECRETS_FILE: /app/config-secrets.yaml
-  #   ports:
-  #     - "7070:7070"
-  #   command: python mhd_ws/run/rest_api/mhd/main.py
-
+  mhd_ws:
+    build:
+      context: .
+      dockerfile: Dockerfile.ws
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mhd_ws_worker:
+        condition: service_started
+    environment:
+      PYTHONPATH: /app
+      MHD_CONFIG_FILE: /app/config.yaml
+      MHD_CONFIG_SECRETS_FILE: /app/config-secrets.yaml
+    ports:
+      - "7070:7070"
+    command: python mhd_ws/run/rest_api/mhd/main.py

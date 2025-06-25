@@ -5,13 +5,13 @@ from typing import Annotated
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Body, Depends, Query
 from fastapi.openapi.models import Example
-from mhd_ws.domain.shared.model import MhdBaseModel
-from pydantic import Field
-
-from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_model.model.v0_1.announcement.profiles.base.profile import (
     AnnouncementBaseProfile,
 )
+from pydantic import Field
+
+from mhd_ws.application.services.interfaces.cache_service import CacheService
+from mhd_ws.domain.shared.model import MhdBaseModel
 
 logger = getLogger(__name__)
 
@@ -156,9 +156,7 @@ async def request_new_identifier(
         int,
         Query(title="Size of returned result", description="Size of returned result."),
     ] = 50,
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     # return DatasetSearchResult(
     #     datasets=[Announcement.model_validate(example_announcement)]
@@ -221,9 +219,7 @@ async def search_dataset_files(
         int,
         Query(title="Size of returned result", description="Size of returned result."),
     ] = 50,
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     # files = Announcement.model_validate(example_announcement).raw_data_file_uri_list
     # if len(files) > 10:
@@ -286,9 +282,7 @@ async def search_dataset_metadata_files(
         int,
         Query(title="Size of returned result", description="Size of returned result."),
     ] = 50,
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     # files = Announcement.model_validate(
     #     example_announcement

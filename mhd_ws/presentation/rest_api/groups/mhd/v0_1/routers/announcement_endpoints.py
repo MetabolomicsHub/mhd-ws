@@ -39,8 +39,8 @@ from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.dependencies import (
     validate_api_token,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.models import (
-    FileValidationModel,
     CreateDatasetRevisionModel,
+    FileValidationModel,
     TaskResult,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.tasks import (
@@ -165,7 +165,7 @@ class RevisionSelection(enum.StrEnum):
     "/datasets/{accession}/announcements",
     summary="Announce New Dataset Revision",
     description="""
-Announce new dataset revision. First public revision is 1. 
+Announce new dataset revision. First public revision is 1.
 If there is any (meta)data update on repository, repository should announce new dataset revision.
 After first successful announcement, dataset access level will be public.
 """,
@@ -225,9 +225,7 @@ async def make_new_announcement(
             description="MetabolomicsHub Dataset Announcement File.",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
@@ -422,9 +420,7 @@ async def get_task_status(
         ),
     ],
     task_id: Annotated[str, Path(title="Task id. ", description="task id.")],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -540,9 +536,7 @@ async def get_revisions(
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     if selection_type == RevisionSelection.SELECTED and (not revision or revision < 1):
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -638,9 +632,7 @@ async def get_revision_file(
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     if revision and revision < 1:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -758,9 +750,7 @@ async def delete_dataset(
             description="MHD Identifier.",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     return MhdAsyncTaskResponse(
         accession="MHD000001",
@@ -841,9 +831,7 @@ async def update_dataset_revision(
             description="MetabolomicsHub Dataset Announcement File.",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     return MhdAsyncTaskResponse(
         accession="MHD000001",
@@ -917,9 +905,7 @@ async def delete_dataset_revision(
             description="Revision number",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     # now = datetime.datetime.now(datetime.UTC)
     return MhdAsyncTaskResponse(
@@ -949,9 +935,7 @@ async def make_new_announcement_validation(
             description="MetabolomicsHub Dataset Announcement File.",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -1068,9 +1052,7 @@ async def make_new_dataset_model_validation(
             description="Metabolomics Hub Common Dataset File.",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -1195,9 +1177,7 @@ async def get_validation_task(
             description="task id.",
         ),
     ],
-    cache_service: CacheService = Depends(
-        Provide["services.cache_service"]
-    ),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
@@ -1215,7 +1195,6 @@ async def get_validation_task(
     try:
         task_result = await async_task_service.get_async_task_result(task_id)
         if not task_result.is_ready():
-
             file_hash = await cache_service.get_value(task_key)
             if file_hash:
                 return MhdAsyncTaskResponse(
@@ -1250,6 +1229,7 @@ async def get_validation_task(
                 expiration_time_in_seconds=60 * 10,
             )
             task_result.revoke(terminate=True)
+            return cache_result
         except Exception as ex:
             response.status_code = status.HTTP_400_BAD_REQUEST
             await cache_service.delete_key(task_key)

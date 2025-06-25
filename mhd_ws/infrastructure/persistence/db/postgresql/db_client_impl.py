@@ -60,8 +60,6 @@ class DatabaseClientImpl(DatabaseClient):
     async def get_connection_repr(self) -> str:
         return self.db_url_repr
 
-    
-
     @asynccontextmanager
     async def session(self) -> AsyncGenerator[AsyncSession, None]:
         async with self._async_session_factory() as session:

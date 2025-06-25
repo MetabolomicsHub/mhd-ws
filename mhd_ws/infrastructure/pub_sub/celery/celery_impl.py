@@ -229,9 +229,9 @@ class CeleryAsyncTaskService(AsyncTaskService):
             on_success_task_method = None
             if on_success_task:
                 on_success_task_method = on_success_task.task_method
-            on_failure_task_method = None
-            if on_failure_task:
-                on_failure_task_method = on_failure_task.task_method
+            # on_failure_task_method = None
+            # if on_failure_task:
+            #     on_failure_task_method = on_failure_task.task_method
             if task_method:
                 return CeleryAsyncTaskExecutor(
                     task_method,

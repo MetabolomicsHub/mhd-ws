@@ -3,20 +3,21 @@ import datetime
 import hashlib
 import json
 from logging import getLogger
-import re
 from typing import Any, OrderedDict
 
 import jsonschema
 from dependency_injector.wiring import Provide, inject
 from jsonschema import exceptions
-from mhd_model.model.v0_1.dataset.validation.validator import MhdFileValidator
-from mhd_model.shared.model import ProfileEnabledDataset
-
 from mhd_model.model import SUPPORTED_SCHEMA_MAP
+from mhd_model.model.v0_1.announcement.profiles.base.profile import (
+    AnnouncementBaseProfile,
+)
 from mhd_model.model.v0_1.announcement.validation.base import ProfileValidator
 from mhd_model.model.v0_1.announcement.validation.validator import (
     MhdAnnouncementFileValidator,
 )
+from mhd_model.model.v0_1.dataset.validation.validator import MhdFileValidator
+from mhd_model.shared.model import ProfileEnabledDataset
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,13 +31,10 @@ from mhd_ws.infrastructure.persistence.db.mhd import (
     DatasetRevisionStatus,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.models import (
-    FileValidationModel,
     CreateDatasetRevisionModel,
     DatasetRevisionError,
+    FileValidationModel,
     TaskResult,
-)
-from mhd_model.model.v0_1.announcement.profiles.base.profile import (
-    AnnouncementBaseProfile,
 )
 
 logger = getLogger(__name__)
@@ -84,7 +82,6 @@ def validate_announcement_file(announcement_file_json: dict[str, Any]):
 
 
 def validate_common_dataset_file(file_json: dict[str, Any]):
-
     mhd_validator = MhdFileValidator()
     errors = mhd_validator.validate(file_json)
 
@@ -461,7 +458,10 @@ async def common_dataset_file_validation(
         await cache_service.delete_key(file_cache_key)
         await cache_service.delete_key(task_key)
     return TaskResult[FileValidationModel](
-        success=False, message=message, result=input_file_info, errors={"failure": message}
+        success=False,
+        message=message,
+        result=input_file_info,
+        errors={"failure": message},
     ).model_dump()
 
 

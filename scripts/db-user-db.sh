@@ -32,7 +32,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
       -----END PUBLIC KEY-----' WHERE id = 1;
 
       -- TOKEN is mhd_1781097016_1d81aa35-4896-44bc-8dee-a0198e88b2a8
-      
+
       INSERT INTO api_token (id, repository_id, name, description, token_hash, expiration_datetime, created_at, status)
       VALUES (1, 1, 'test_token', 'test token description', '6707c01b35e754eb3e7a634e019df831b3e2a2ce0ab845ac6d46351c37d2b3dc', NOW() + INTERVAL '1 year', NOW(), 1);
 

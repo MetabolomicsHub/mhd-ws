@@ -1,4 +1,5 @@
 import logging
+
 from mhd_ws.application.context.async_task_registry import (
     ASYNC_TASK_APP_NAME,
     ASYNC_TASK_QUEUE,

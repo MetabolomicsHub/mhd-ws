@@ -1,4 +1,3 @@
-
 import datetime
 from pathlib import Path
 
@@ -6,7 +5,10 @@ import jwt
 
 AUDIENCE = "https://www.metabolomicshub.org"
 
-def create_jwt_token(sub: str, private_key_path: str, exp: None | datetime.datetime = None) -> str:
+
+def create_jwt_token(
+    sub: str, private_key_path: str, exp: None | datetime.datetime = None
+) -> str:
     """
     Create a JWT token using RSA private key.
 

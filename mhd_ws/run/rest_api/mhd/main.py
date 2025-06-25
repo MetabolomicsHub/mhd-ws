@@ -8,6 +8,7 @@ from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.authentication import AuthenticationMiddleware
 
 import mhd_ws
 from mhd_ws.application.context.request_tracker import get_request_tracker
@@ -24,7 +25,6 @@ from mhd_ws.run.module_utils import load_modules
 from mhd_ws.run.rest_api.mhd import initialization
 from mhd_ws.run.rest_api.mhd.containers import MhdApplicationContainer
 from mhd_ws.run.subscribe import find_async_task_modules, find_injectable_modules
-from starlette.middleware.authentication import AuthenticationMiddleware
 
 logger = None
 

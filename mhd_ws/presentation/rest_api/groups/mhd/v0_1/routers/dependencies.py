@@ -68,26 +68,26 @@ async def validate_api_token(
 
 
 signed_jwt_token_description = """
-Repository public key will be stored on MetabolomicsHub database and signed 
+Repository public key will be stored on MetabolomicsHub database and signed
 JWT token will be used to validate repository.
 The repository application should create a JWT token and sign its payload using the repository private key.
 
 JWT token structure:
 - Header
     + Fields
-    
+
         * alg: (Algorithm) payload signing algorithm. It must be "RS256" (RSA Signature with SHA-256)
         * typ: (Type) type of token. It must be "JWT"
     + Example:
-    
+
         {
             "alg": "RS256",
             "typ": "JWT"
         }
 - Payload
     * Payload should contain the following fields:
-    
-        + sub: (Subject) repository name defined in MetabolomicsHub database. 
+
+        + sub: (Subject) repository name defined in MetabolomicsHub database.
                 It is case sensitive string (e.g., MetaboLights, Metabolomics Workbench, GNPS, etc.)
         + aud: (Audience) MetabolomicsHub portal URL (Valid value: https://www.metabolomicshub.org)
         + iat: (Issued At) Issued time in seconds since the Epoch (IEEE Std 1003.1, 2013 Edition)
@@ -119,6 +119,7 @@ signed_jwt_token_header = Header(
     },
     alias="x-signed-jwt-token",
 )
+
 
 @inject
 async def validate_repository_token(
