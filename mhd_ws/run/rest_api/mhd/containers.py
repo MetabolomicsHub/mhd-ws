@@ -135,8 +135,10 @@ logging.basicConfig(
     datefmt="%d/%b/%Y %H:%M:%S",
     stream=sys.stdout,
 )
-MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config.yaml")
-MHD_CONFIG_SECRETS_FILE = os.getenv("MHD_CONFIG_SECRETS_FILE", "config-secrets.yaml")
+MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "mhd-ws-config.yaml")
+MHD_CONFIG_SECRETS_FILE = os.getenv(
+    "MHD_CONFIG_SECRETS_FILE", ".secrets/.mhd-ws-secrets.yaml"
+)
 
 logger.info("Using MHD config file: %s", MHD_CONFIG_FILE)
 logger.info("Using MHD secrets file: %s", MHD_CONFIG_SECRETS_FILE)

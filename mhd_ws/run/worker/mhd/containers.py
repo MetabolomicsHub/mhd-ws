@@ -1,3 +1,4 @@
+import logging
 import os
 from logging import config as logging_config
 
@@ -22,6 +23,8 @@ from mhd_ws.run.rest_api.mhd.base_container import (
     GatewaysContainer,
     RepositoriesContainer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MhdWorkerCoreContainer(containers.DeclarativeContainer):
@@ -77,8 +80,13 @@ class MhdWorkerServicesContainer(containers.DeclarativeContainer):
     # )
 
 
-MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "config.yaml")
-MHD_CONFIG_SECRETS_FILE = os.getenv("MHD_CONFIG_SECRETS_FILE", "config-secrets.yaml")
+MHD_CONFIG_FILE = os.getenv("MHD_CONFIG_FILE", "mhd-ws-config.yaml")
+MHD_CONFIG_SECRETS_FILE = os.getenv(
+    "MHD_CONFIG_SECRETS_FILE", ".secrets/.mhd-ws-secrets.yaml"
+)
+
+logger.info("Using MHD config file: %s", MHD_CONFIG_FILE)
+logger.info("Using MHD secrets file: %s", MHD_CONFIG_SECRETS_FILE)
 
 
 class MhdWorkerApplicationContainer(containers.DeclarativeContainer):

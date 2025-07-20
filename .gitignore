@@ -1,6 +1,7 @@
-
+.secrets/.mhd-ws-secrets.yaml
+mhd-ws-config.yaml
+db_data/*
 cache*/
-db_data*/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
