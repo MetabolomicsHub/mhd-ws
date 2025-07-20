@@ -87,3 +87,7 @@ class RedisSentinelCacheImpl(CacheService):
     async def get_ttl_in_seconds(self, key: str) -> int:
         slave = await self._get_slave_connection()
         return await slave.ttl(key)
+
+    async def ping(self) -> None:
+        master = await self._get_master_connection()
+        return await master.ping()

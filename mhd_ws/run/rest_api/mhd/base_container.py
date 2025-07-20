@@ -11,7 +11,9 @@ from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.postgresql.db_client_impl import (
     DatabaseClientImpl,
 )
-from mhd_ws.infrastructure.pub_sub.connection.redis import RedisConnectionProvider
+from mhd_ws.infrastructure.pub_sub.connection.redis_sentinel import (
+    RedisSentinelConnectionProvider,
+)
 
 
 class GatewaysContainer(containers.DeclarativeContainer):
@@ -30,8 +32,8 @@ class GatewaysContainer(containers.DeclarativeContainer):
     # )
 
     pub_sub_broker: PubSubConnection = providers.Singleton(
-        RedisConnectionProvider,
-        config=config.cache.redis.connection,
+        RedisSentinelConnectionProvider,
+        config=config.cache.redis_sentinel.connection,
     )
 
     pub_sub_backend: PubSubConnection = pub_sub_broker

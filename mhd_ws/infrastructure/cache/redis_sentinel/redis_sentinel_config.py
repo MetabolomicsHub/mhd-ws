@@ -6,7 +6,7 @@ from mhd_ws.infrastructure.cache.redis.redis_config import RedisService
 
 
 class RedisSentinelConnection(BaseModel):
-    master_name: str = "master-redis-ws"
+    master_name: str = "redis"
     password: str = ""
     db: int = 10
     sentinel_services: List[RedisService] = []

@@ -66,17 +66,7 @@ def update_container(
 
 
 def get_worker_app(initial_container: MhdWorkerApplicationContainer):
-    # async_task_registry = get_async_task_registry()
     manager: CeleryAsyncTaskService = initial_container.services.async_task_service()
-    # rc = initial_container.gateways.config.cache.redis.connection()
-    # redis_connection_provider = RedisConnectionProvider(rc)
-    # manager = CeleryAsyncTaskService(
-    #     broker=redis_connection_provider,
-    #     backend=redis_connection_provider,
-    #     default_queue="common",
-    #     queue_names=["common"],
-    #     async_task_registry=async_task_registry,
-    # )
 
     return manager.app
 

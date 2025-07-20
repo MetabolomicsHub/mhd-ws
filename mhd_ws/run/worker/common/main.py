@@ -13,7 +13,9 @@ from mhd_ws.application.services.interfaces.async_task.utils import (
 from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
     CeleryAsyncTaskService,
 )
-from mhd_ws.infrastructure.pub_sub.connection.redis import RedisConnectionProvider
+from mhd_ws.infrastructure.pub_sub.connection.redis_sentinel import (
+    RedisSentinelConnectionProvider,
+)
 from mhd_ws.run.config_renderer import render_config_secrets
 from mhd_ws.run.module_utils import load_modules
 from mhd_ws.run.rest_api.mhd import initialization
@@ -71,11 +73,11 @@ def update_container(
 def get_worker_app(initial_container: Ws3WorkerApplicationContainer):
     async_task_registry = get_async_task_registry()
 
-    rc = initial_container.gateways.config.cache.redis.connection()
-    redis_connection_provider = RedisConnectionProvider(rc)
+    rc = initial_container.gateways.config.cache.redis_sentinel.connection()
+    redis_sentinel_connection_provider = RedisSentinelConnectionProvider(rc)
     manager = CeleryAsyncTaskService(
-        broker=redis_connection_provider,
-        backend=redis_connection_provider,
+        broker=redis_sentinel_connection_provider,
+        backend=redis_sentinel_connection_provider,
         default_queue="common",
         queue_names=["common"],
         async_task_registry=async_task_registry,
