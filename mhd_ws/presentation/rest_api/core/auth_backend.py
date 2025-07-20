@@ -122,7 +122,6 @@ class AuthBackend(AuthenticationBackend):
                 )
             raise AuthenticationError("Unauthorized access.")
         else:
-            logger.error("No authentication method provided.")
             return AuthCredentials(["unauthenticated"]), UnauthenticatedUser(
                 resource_id
             )

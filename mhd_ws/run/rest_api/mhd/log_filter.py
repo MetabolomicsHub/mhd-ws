@@ -20,6 +20,7 @@ class DefaultLogFilter(Filter):
         "/openapi.json",
         "/resources/favicon.ico",
         "/version",
+        "/server-info",
     }
 
     def filter(
