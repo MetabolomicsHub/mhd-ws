@@ -16,6 +16,7 @@ dependencies = [
     "cryptography>=45.0.4",
     "dependency-injector>=4.48.1",
     "email-validator>=2.2.0",
+    "fastapi>=0.116.1",
     "flower>=2.0.1",
     "ftputil>=5.1.0",
     "gunicorn>=23.0.0",
@@ -109,4 +110,9 @@ layers = [
     "mhd_ws.infrastructure | mhd_ws.presentation",
     "mhd_ws.application",
     "mhd_ws.domain"
+]
+ignore_imports = [
+
+   "mhd_ws.presentation.** -> mhd_ws.infrastructure.persistence.db.mhd",
+   "mhd_ws.presentation.** -> mhd_ws.infrastructure.persistence.db.db_client",
 ]
