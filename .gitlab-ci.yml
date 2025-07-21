@@ -26,6 +26,8 @@ lint:
   image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
   services:
   - docker:dind
+  tags:
+  - dind
   script:
   - ls -al
   - echo "GITLAB_USER $GITLAB_USER"
@@ -59,6 +61,8 @@ build_image:
   image: docker:latest
   services:
   - docker:dind
+  tags:
+  - dind
   script:
   - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
   - echo "Build number $BUILD_NUMBER, commit name ${CI_COMMIT_REF_NAME}"
@@ -74,6 +78,8 @@ push_image:
   image: docker:latest
   services:
   - docker:dind
+  tags:
+  - dind
   script:
   - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
   - docker push $IMAGE_NAME
@@ -95,6 +101,8 @@ deploy_ws:
   image: alpine/k8s:1.23.17
   services:
   - docker:dind
+  tags:
+  - dind
   rules:
   - if: $CI_COMMIT_BRANCH == "test" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "development"
     when: on_success
