@@ -92,4 +92,4 @@ class RedisSentinelCacheImpl(CacheService):
 
     async def ping(self) -> None:
         master = await self._get_master_connection()
-        return await master.ping()
+        return master.ping()
