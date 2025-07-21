@@ -35,7 +35,7 @@ class RedisSentinelCacheImpl(CacheService):
         return self.url_repr
 
     async def _get_master_connection(self) -> redis.Redis:
-        self.redis_master = self.sentinel.master_for(
+        redis_master = self.sentinel.master_for(
             self.service_name,
             redis_class=redis.Redis,
             db=self.connection.db,
@@ -43,9 +43,10 @@ class RedisSentinelCacheImpl(CacheService):
             decode_responses=True,
             socket_connect_timeout=self.connection.socket_timeout,
         )
+        return redis_master
 
     async def _get_slave_connection(self) -> redis.Redis:
-        self.redis_slave = self.sentinel.slave_for(
+        redis_slave = self.sentinel.slave_for(
             self.service_name,
             redis_class=redis.Redis,
             db=self.connection.db,
@@ -53,6 +54,7 @@ class RedisSentinelCacheImpl(CacheService):
             decode_responses=True,
             socket_connect_timeout=self.connection.socket_timeout,
         )
+        return redis_slave
 
     async def keys(self, key_pattern: str) -> list[str]:
         master = await self._get_master_connection()
