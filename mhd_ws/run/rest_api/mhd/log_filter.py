@@ -1,3 +1,4 @@
+import logging
 from logging import Filter, LogRecord
 
 from mhd_ws.application.context.request_tracker import (
@@ -55,6 +56,6 @@ class DefaultLogFilter(Filter):
             record.request_id = "-"
             record.task_id = "-"
         for route in self.filtered_routes:
-            if record.route_path.startswith(route):
+            if record.route_path.endswith(route) and record.levelno <= logging.INFO:
                 return False
         return True
