@@ -3,7 +3,7 @@ Metabolomics Hub submission and search web services
 
 # Development & Test Environment
 
-To run and test MetaboLomics Hub server, you have to install [docker-compose tool](https://docs.docker.com/compose/install/){:target="_blank"}.
+To run and test Metabolomics Hub server, you have to install [docker-compose tool](https://docs.docker.com/compose/install/).
 
 You can run Metabolomics Submission Server with this commands.
 ```
