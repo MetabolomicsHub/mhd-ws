@@ -17,17 +17,17 @@ workflow:
 stages:
 - lint
 - build
-- push
 - deploy-ws-worker
 - deploy-ws
 
 lint:
   stage: lint
-  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
-  services:
-  - docker:dind
+  image:
+    name: ghcr.io/astral-sh/uv:0.9.1-python3.13-bookworm
+    pull_policy: if-not-present
   tags:
-  - dind
+  - mtbls
+  - docker
   script:
   - ls -al
   - echo "GITLAB_USER $GITLAB_USER"
@@ -58,11 +58,14 @@ lint:
 
 build_image:
   stage: build
-  image: docker:latest
-  services:
-  - docker:dind
+  image:
+    name: ${CICD_GITLAB_REGISTRY}docker:28.5.1-dind
+    pull_policy: if-not-present
   tags:
-  - dind
+  - docker
+  - mtbls
+  before_script:
+  - docker info
   script:
   - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
   - echo "Build number $BUILD_NUMBER, commit name ${CI_COMMIT_REF_NAME}"
@@ -72,15 +75,6 @@ build_image:
   - docker build -f Dockerfile.ws -t $IMAGE_NAME .
   - echo "docker build -f Dockerfile.ws -t $LATEST_IMAGE_NAME ."
   - docker build -f Dockerfile.ws -t $LATEST_IMAGE_NAME .
-
-push_image:
-  stage: push
-  image: docker:latest
-  services:
-  - docker:dind
-  tags:
-  - dind
-  script:
   - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
   - docker push $IMAGE_NAME
   - docker push $LATEST_IMAGE_NAME
@@ -98,11 +92,12 @@ deploy_ws:
   extends: .kube_deploy_script
 
 .kube_deploy_script:
-  image: alpine/k8s:1.23.17
-  services:
-  - docker:dind
+  image:
+    name: ${CICD_GITLAB_REGISTRY}alpine/k8s:1.23.17
+    pull_policy: if-not-present
   tags:
-  - dind
+  - docker
+  - mtbls
   rules:
   - if: $CI_COMMIT_BRANCH == "test" || $CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "development"
     when: on_success
