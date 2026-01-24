@@ -38,10 +38,10 @@ async def create_new_identifier(
 
         result = await session.execute(stmt)
         current_dataset = result.scalar_one_or_none()
+
         if current_dataset is not None:
-            await session.rollback()
             return (
-                None,
+                current_dataset,
                 f"{repository.name} dataset with identifier {ref_id} already exists.",
             )
 
