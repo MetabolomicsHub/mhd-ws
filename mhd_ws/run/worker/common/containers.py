@@ -81,7 +81,7 @@ class Ws3WorkerApplicationContainer(containers.DeclarativeContainer):
         core=core,
         repositories=repositories,
         gateways=gateways,
-        cache_config=config.gateways.cache.redis_sentinel.connection,
+        cache_config=config.gateways.cache.redis.connection,
     )
 
     module_config: ModuleConfiguration = providers.Resource(

@@ -4,7 +4,7 @@ import hashlib
 import json
 import uuid
 from logging import getLogger
-from typing import Annotated
+from typing import Annotated, Any
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import (
@@ -16,11 +16,13 @@ from fastapi import (
     Query,
     Response,
     UploadFile,
-    status,
 )
 from fastapi.responses import StreamingResponse
 from pydantic import Field, PositiveInt
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.sql import or_
+from starlette import status as http_status
 
 from mhd_ws.application.services.interfaces.async_task.async_task_service import (
     AsyncTaskService,
@@ -30,9 +32,13 @@ from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.domain.shared.model import MhdBaseModel
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
+    AccessionType,
     AnnouncementFile,
     Dataset,
     DatasetRevision,
+)
+from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db_utils import (
+    create_new_identifier,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.dependencies import (
     RepositoryModel,
@@ -67,6 +73,13 @@ class MhdAsyncTaskResponse(MhdBaseModel):
         None | str,
         Field(
             title="MHD Identifier", description="Assigned MetabolomicsHub identifier"
+        ),
+    ] = None
+    dataset_repository_identifier: Annotated[
+        None | str,
+        Field(
+            title="Repository Dataset Identifier",
+            description="Assigned Repository Dataset identifier",
         ),
     ] = None
     task_id: Annotated[
@@ -107,7 +120,7 @@ class Revision(MhdBaseModel):
             title="MHD Identifier", description="Assigned MetabolomicsHub identifier"
         ),
     ]
-    repostiory: Annotated[
+    repository: Annotated[
         str, Field(title="Repository Name", description="Repository name")
     ]
     revision_number: Annotated[
@@ -146,12 +159,16 @@ class MhDatasetRevisions(MhdBaseModel):
             title="MHD Identifier", description="Assigned MetabolomicsHub identifier"
         ),
     ]
-    repostiory: Annotated[
+    repository: Annotated[
         str, Field(title="Repository Name", description="Repository name")
     ]
     revisions: Annotated[
         None | list[MhDatasetRevision],
         Field(title="Dataset revisions", description="Dataset revisions"),
+    ] = None
+    errors: Annotated[
+        None | list[str],
+        Field(title="Errors", description="Errors"),
     ] = None
 
 
@@ -207,15 +224,18 @@ async def make_new_announcement(
     accession: Annotated[
         str,
         Path(
-            title="MHD Identifier",
-            description="MHD Identifier.",
+            title="MHD Identifier or Repository Dataset Identifier",
+            description="MHD Identifier for MetabolomicsHub datasets. "
+            "Use dataset repository identifier for legacy datasets.",
         ),
     ],
     announcement_reason: Annotated[
         None | str,
-        Field(
+        Header(
             title="Announcement reason. ",
             description="Announcement reason. Example: 'Initial revision', 'Update publication DOI', 'Update sample metadata', etc",
+            alias="x-announcement-reason",
+            min_length=1,
         ),
     ],
     file: Annotated[
@@ -232,87 +252,96 @@ async def make_new_announcement(
     ),
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
 ):
+    if not accession:
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
+        error = "accession is required."
+        logger.error(error)
+        return MhdAsyncTaskResponse(accession=accession, errors=[error])
     if not repository:
-        response.status_code = status.HTTP_403_FORBIDDEN
-        error = "API token is not valid"
-        return MhdAsyncTaskResponse(
-            errors=[error],
-        )
+        response.status_code = http_status.HTTP_401_UNAUTHORIZED
+        error = "Repository token is not valid"
+        return MhdAsyncTaskResponse(accession=accession, errors=[error])
 
-    contents = await file.read()
-    # hash_value = hashlib.sha256(contents).hexdigest()
     dataset: None | Dataset = None
     async with db_client.session() as session:
-        stmt = select(Dataset).where(Dataset.accession == accession)
+        where = [Dataset.repository_id == repository.id]
+        where.append(
+            or_(
+                Dataset.dataset_repository_identifier == accession,
+                Dataset.accession == accession,
+            )
+        )
+
+        stmt = select(Dataset).where(*where)
         result = await session.execute(stmt)
         dataset = result.scalar()
-
-    if dataset is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        error = "There is no dataset."
-        return MhdAsyncTaskResponse(
-            accession=accession,
-            errors=[error],
-        )
-    elif dataset.repository_id != repository.id:
-        response.status_code = status.HTTP_403_FORBIDDEN
-        error = "Repository has no permission to update dataset."
-        return MhdAsyncTaskResponse(
-            accession=accession,
-            errors=[error],
-        )
 
     file_cache_key = f"new-announcement:{accession}"
     task_id = await cache_service.get_value(file_cache_key)
     if task_id is not None:
         error = f"Task id {task_id} already exists for {accession}."
         logger.error(error)
-        response.status_code = status.HTTP_425_TOO_EARLY
-        return MhdAsyncTaskResponse(
-            task_id=task_id,
-            errors=[error],
-        )
-
+        response.status_code = http_status.HTTP_425_TOO_EARLY
+        return MhdAsyncTaskResponse(task_id=task_id, errors=[error])
+    contents = await file.read()
     try:
         announcement_file_json = json.loads(contents.decode())
+        profile_uri = announcement_file_json.get("profile_uri", "")
+        legacy_profile = profile_uri.endswith(
+            "legacy-profile.json"
+        ) or not accession.startswith("MHD")
+
         mhd_identifier = announcement_file_json.get("mhd_identifier", None)
-        repository_identifier = announcement_file_json.get(
+        dataset_repository_identifier = announcement_file_json.get(
             "repository_identifier", None
         )
+        if not dataset_repository_identifier:
+            response.status_code = http_status.HTTP_400_BAD_REQUEST
+            error = "Repository identifier is required in the announcement file."
+            logger.error(error)
+            return MhdAsyncTaskResponse(accession=accession, errors=[error])
+        if legacy_profile:
+            if (
+                dataset_repository_identifier != accession
+                and dataset_repository_identifier != mhd_identifier
+            ):
+                response.status_code = http_status.HTTP_400_BAD_REQUEST
+                error = (
+                    "Repository identifier in the announcement file "
+                    f"({dataset_repository_identifier}) does not match the input accession ({accession})."
+                )
+                logger.error(error)
+                return MhdAsyncTaskResponse(accession=accession, errors=[error])
 
-        if not mhd_identifier or not repository_identifier:
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            error = "MHD identifier and repository identifier are required in the announcement file."
+            if not dataset:
+                dataset, message = create_new_identifier(
+                    db_client,
+                    AccessionType.LEGACY,
+                    repository,
+                    dataset_repository_identifier,
+                )
+                if not dataset:
+                    response.status_code = http_status.HTTP_400_BAD_REQUEST
+                    error = "Failed to create new dataset."
+                    logger.error(error)
+                    return MhdAsyncTaskResponse(accession=accession, errors=[error])
+
+        if not dataset:
+            response.status_code = http_status.HTTP_404_NOT_FOUND
+            error = "No dataset found."
             logger.error(error)
-            return MhdAsyncTaskResponse(
-                accession=accession,
-                errors=[error],
-            )
-        if mhd_identifier != accession:
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            error = f"MHD identifier in the announcement file ({mhd_identifier}) does not match the input accession ({accession})."
-            logger.error(error)
-            return MhdAsyncTaskResponse(
-                accession=accession,
-                errors=[error],
-            )
-        if repository_identifier != dataset.dataset_repository_identifier:
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            error = f"Repository identifier in the announcement file ({repository_identifier}) does not match the repository identifier in database ({dataset.dataset_repository_identifier})."
-            logger.error(error)
-            return MhdAsyncTaskResponse(
-                accession=accession,
-                errors=[error],
-            )
+            return MhdAsyncTaskResponse(accession=accession, errors=[error])
+
+        if dataset.repository_id != repository.id:
+            response.status_code = http_status.HTTP_403_FORBIDDEN
+            error = "Repository has no permission to update dataset."
+            return MhdAsyncTaskResponse(accession=accession, errors=[error])
 
     except json.JSONDecodeError:
-        response.status_code = status.HTTP_400_BAD_REQUEST
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
         error = "Invalid JSON format in the announcement file."
         logger.error(error)
-        return MhdAsyncTaskResponse(
-            accession=accession,
-            errors=[error],
-        )
+        return MhdAsyncTaskResponse(accession=accession, errors=[error])
 
     task_id = str(uuid.uuid4())
     await cache_service.set_value(
@@ -324,6 +353,7 @@ async def make_new_announcement(
     executor = await async_task_service.get_async_task(
         add_submission_task,
         repository_id=repository.id,
+        dataset_repository_identifier=dataset_repository_identifier,
         accession=accession,
         announcement_file_json=announcement_file_json,
         announcement_reason=announcement_reason,
@@ -427,7 +457,7 @@ async def get_task_status(
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
 ):
     if not repository:
-        response.status_code = status.HTTP_400_BAD_REQUEST
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
         return MhdAsyncTaskResponse(errors=["Invalid API token"])
     task_result = None
     try:
@@ -442,7 +472,7 @@ async def get_task_status(
                     task_status=TaskStatus(task_result.get_status()),
                     messages=["Task is not completed yet."],
                 )
-            response.status_code = status.HTTP_404_NOT_FOUND
+            response.status_code = http_status.HTTP_404_NOT_FOUND
             return MhdAsyncTaskResponse(
                 accession=accession, errors=[f"There is no task {task_id}."]
             )
@@ -466,7 +496,7 @@ async def get_task_status(
                 errors=output.errors,
             )
         except Exception as ex:
-            response.status_code = status.HTTP_400_BAD_REQUEST
+            response.status_code = http_status.HTTP_400_BAD_REQUEST
 
             return MhdAsyncTaskResponse(
                 accession=accession,
@@ -527,7 +557,7 @@ async def get_revisions(
             description="selection type.",
         ),
     ] = RevisionSelection.LATEST,
-    revision: Annotated[
+    mhd_revision: Annotated[
         None | PositiveInt,
         Query(
             title="The selected revision only.",
@@ -536,44 +566,53 @@ async def get_revisions(
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
+    # cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
-    if selection_type == RevisionSelection.SELECTED and (not revision or revision < 1):
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        error = "Revision must be greater than 0."
-        return MhdAsyncTaskResponse(
+    if not repository:
+        response.status_code = http_status.HTTP_401_UNAUTHORIZED
+        error = "Unauthorized request."
+        return MhDatasetRevisions(
             accession=accession,
+            repository=repository.name,
+            errors=[error],
+        )
+    if selection_type == RevisionSelection.SELECTED and (
+        not mhd_revision or mhd_revision < 1
+    ):
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
+        error = "Revision must be greater than 0."
+        return MhDatasetRevisions(
+            accession=accession,
+            repository=repository.name,
             errors=[error],
         )
 
-    async with db_client.session() as session:
-        query = (
-            select(DatasetRevision)
-            .join(
-                Dataset,
-                DatasetRevision.dataset_id == Dataset.id,
-            )
-            .where(
-                Dataset.accession == accession,
-                Dataset.repository_id == repository.id,
-            )
+    async with db_client.session() as a_session:
+        session: AsyncSession = a_session
+        where_clauses = [
+            Dataset.accession == accession,
+            Dataset.repository_id == repository.id,
+        ]
+        query = select(DatasetRevision).join(
+            Dataset,
+            DatasetRevision.dataset_id == Dataset.id,
         )
+
         if selection_type == RevisionSelection.LATEST:
-            query = query.where(DatasetRevision.revision == Dataset.revision)
+            where_clauses.append(DatasetRevision.revision == Dataset.revision)
         elif selection_type == RevisionSelection.SELECTED:
-            query = query.where(DatasetRevision.revision == revision)
-        else:
-            query = query.order_by(DatasetRevision.revision.desc())
+            where_clauses.append(DatasetRevision.revision == mhd_revision)
+        query = query.where(*where_clauses).order_by(DatasetRevision.revision.desc())
 
         result = await session.execute(query)
         dataset_revisions: None | list[DatasetRevision] = result.scalars().all()
 
         if not dataset_revisions:
-            response.status_code = status.HTTP_404_NOT_FOUND
-            error = "Dataset revision is not found."
-            return MhdAsyncTaskResponse(
+            response.status_code = http_status.HTTP_404_NOT_FOUND
+            return MhDatasetRevisions(
                 accession=accession,
-                errors=[error],
+                repository=repository.name,
+                errors=[f"Dataset revision is not found for {accession}."],
             )
         revisions = [
             MhDatasetRevision(
@@ -585,7 +624,7 @@ async def get_revisions(
         ]
         return MhDatasetRevisions(
             accession=accession,
-            repostiory=repository.name,
+            repository=repository.name,
             revisions=revisions,
         )
 
@@ -619,38 +658,42 @@ async def get_revision_file(
     accession: Annotated[
         str,
         Path(
-            title="MHD Identifier",
-            description="MHD Identifier.",
+            title="MHD Identifier or Dataset Repository Identifier",
+            description="MHD Identifier for MetabolomicsHub datasets. "
+            "Use dataset repository identifier for legacy datasets.",
         ),
     ],
-    revision: Annotated[
+    mhd_revision: Annotated[
         None | int,
         Query(
-            title="The selected revision only.",
-            description="The selected revision only.",
+            title="The selected MetabolomicsHub revision.",
+            description="The selected MetabolomicsHub revision. "
+            "If not provided, the latest revision is returned.",
         ),
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
+    # cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
-    if revision and revision < 1:
-        response.status_code = status.HTTP_400_BAD_REQUEST
+    if mhd_revision and mhd_revision < 1:
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
         error = "Revision must be greater than 0."
-        return MhdAsyncTaskResponse(
+        return MhDatasetRevisions(
             accession=accession,
+            repository=repository.name,
             errors=[error],
         )
     if not repository:
-        response.status_code = status.HTTP_400_BAD_REQUEST
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
         error = "Repository is not found."
-        return MhdAsyncTaskResponse(
+        return MhDatasetRevisions(
             accession=accession,
+            repository=repository.name,
             errors=[error],
         )
     async with db_client.session() as session:
         query = (
-            select(AnnouncementFile)
+            select(AnnouncementFile.file, DatasetRevision.revision)
             .join(
                 DatasetRevision,
                 DatasetRevision.file_id == AnnouncementFile.id,
@@ -664,23 +707,30 @@ async def get_revision_file(
                 Dataset.repository_id == repository.id,
             )
         )
-        if revision:
-            query = query.where(DatasetRevision.revision == revision)
+        if mhd_revision:
+            query = query.where(DatasetRevision.revision == mhd_revision)
         else:
             query = query.where(DatasetRevision.revision == Dataset.revision)
 
         result = await session.execute(query)
-        announcement_file: None | AnnouncementFile = result.scalars().one_or_none()
+        result_tuple: None | tuple[dict[str, Any], int] = result.one_or_none()
 
-        if not announcement_file:
-            response.status_code = status.HTTP_404_NOT_FOUND
-            error = "Dataset announcement file is not defined."
-            return MhdAsyncTaskResponse(
+        if not result_tuple:
+            response.status_code = http_status.HTTP_404_NOT_FOUND
+            error = (
+                "Dataset announcement file is not defined "
+                f"or selected revision {mhd_revision or ''} is not found."
+            )
+            return MhDatasetRevisions(
                 accession=accession,
+                repository=repository.name,
                 errors=[error],
             )
-        content = json.dumps(announcement_file.file, indent=2)
-        download_filename = f'attachment; filename="{accession}_announcement.json"'
+        announcement_file, revision = result_tuple
+        content = json.dumps(announcement_file, indent=2)
+        download_filename = (
+            f'attachment; filename="{accession}_announcement_rev_{revision:02}.json"'
+        )
         headers = {
             "x-mtbls-file-type": "application/json",
             "Content-Disposition": download_filename,
@@ -741,6 +791,7 @@ async def delete_dataset(
         Header(
             title="API token.",
             description="API token",
+            alias="x-api-token",
         ),
     ],
     accession: Annotated[
@@ -808,6 +859,7 @@ async def update_dataset_revision(
         Header(
             title="API token.",
             description="API token",
+            alias="x-api-token",
         ),
     ],
     accession: Annotated[
@@ -889,6 +941,7 @@ async def delete_dataset_revision(
         Header(
             title="API token.",
             description="API token",
+            alias="x-api-token",
         ),
     ],
     accession: Annotated[
@@ -942,7 +995,7 @@ async def make_new_announcement_validation(
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
 ):
     if not repository:
-        response.status_code = status.HTTP_403_FORBIDDEN
+        response.status_code = http_status.HTTP_403_FORBIDDEN
         error = "API token is not valid"
         return MhdAsyncTaskResponse(
             errors=[error],
@@ -959,7 +1012,7 @@ async def make_new_announcement_validation(
     if task_id is not None:
         error = "There is a task running for the current announcement file."
         logger.error(error)
-        response.status_code = status.HTTP_425_TOO_EARLY
+        response.status_code = http_status.HTTP_425_TOO_EARLY
         return MhdAsyncTaskResponse(
             task_id=task_id,
             errors=[error],
@@ -1048,8 +1101,8 @@ async def make_new_dataset_model_validation(
     file: Annotated[
         UploadFile,
         File(
-            title="Metabolomics Hub Common Dataset File",
-            description="Metabolomics Hub Common Dataset File.",
+            title="MetabolomicsHub Common Dataset File",
+            description="MetabolomicsHub Common Dataset File.",
         ),
     ],
     cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
@@ -1059,7 +1112,7 @@ async def make_new_dataset_model_validation(
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
 ):
     if not repository:
-        response.status_code = status.HTTP_403_FORBIDDEN
+        response.status_code = http_status.HTTP_403_FORBIDDEN
         error = "API token is not valid"
         return MhdAsyncTaskResponse(
             errors=[error],
@@ -1076,7 +1129,7 @@ async def make_new_dataset_model_validation(
     if task_id is not None:
         error = "There is a task running for the current file."
         logger.error(error)
-        response.status_code = status.HTTP_425_TOO_EARLY
+        response.status_code = http_status.HTTP_425_TOO_EARLY
         return MhdAsyncTaskResponse(
             task_id=task_id,
             errors=[error],
@@ -1184,7 +1237,7 @@ async def get_validation_task(
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
 ):
     if not repository:
-        response.status_code = status.HTTP_400_BAD_REQUEST
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
         return MhdAsyncTaskResponse(errors=["Invalid API token"])
     task_key = f"new-file-validation-task:{repository.id}:{task_id}"
     task_result_key = f"new-file-validation-task-result:{repository.id}:{task_id}"
@@ -1202,7 +1255,7 @@ async def get_validation_task(
                     task_status=TaskStatus(task_result.get_status()),
                     messages=["Task is not completed yet."],
                 )
-            response.status_code = status.HTTP_404_NOT_FOUND
+            response.status_code = http_status.HTTP_404_NOT_FOUND
             return MhdAsyncTaskResponse(errors=[f"There is no task {task_id}."])
         try:
             # if task_result.is_successful():
@@ -1231,7 +1284,7 @@ async def get_validation_task(
             task_result.revoke(terminate=True)
             return cache_result
         except Exception as ex:
-            response.status_code = status.HTTP_400_BAD_REQUEST
+            response.status_code = http_status.HTTP_400_BAD_REQUEST
             await cache_service.delete_key(task_key)
             return MhdAsyncTaskResponse(
                 task_id=task_result.get_id(),

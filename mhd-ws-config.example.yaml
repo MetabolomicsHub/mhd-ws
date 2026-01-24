@@ -59,13 +59,13 @@ run:
         - name: "About API"
           description: "Get information about API"
         - name: "MHD Identifiers"
-          description: "Metabolomics Hub Identifier Operations"
+          description: "MetabolomicsHub Identifier Operations"
         - name: "Dataset Announcements"
-          description: "Metabolomics Hub Dataset Announcements"
+          description: "MetabolomicsHub Dataset Announcements"
         - name: "Dataset Validation"
-          description: "Metabolomics Hub Dataset Validation Operations"
+          description: "MetabolomicsHub Dataset Validation Operations"
         - name: "API Tokens"
-          description: "Metabolomics Hub API Token Operations"
+          description: "MetabolomicsHub API Token Operations"
     logging:
       version: 1
       disable_existing_loggers: false

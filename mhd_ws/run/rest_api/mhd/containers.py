@@ -16,9 +16,7 @@ from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.domain.domain_services.configuration_generator import (
     create_config_from_dict,
 )
-from mhd_ws.infrastructure.cache.redis_sentinel.redis_sentinel_impl import (
-    RedisSentinelCacheImpl,
-)
+from mhd_ws.infrastructure.cache.redis.redis_impl import RedisCacheImpl
 from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
     CeleryAsyncTaskService,
 )
@@ -70,7 +68,7 @@ class MhdServicesContainer(containers.DeclarativeContainer):
     # )
 
     cache_service: CacheService = providers.Singleton(
-        RedisSentinelCacheImpl,
+        RedisCacheImpl,
         config=cache_config,
     )
     # authentication_service: AuthenticationService = providers.Singleton(
@@ -162,7 +160,7 @@ class MhdApplicationContainer(containers.DeclarativeContainer):
     services = providers.Container(
         MhdServicesContainer,
         config=config.services,
-        cache_config=config.gateways.cache.redis_sentinel.connection,
+        cache_config=config.gateways.cache.redis.connection,
         core=core,
         # repositories=repositories,
         gateways=gateways,

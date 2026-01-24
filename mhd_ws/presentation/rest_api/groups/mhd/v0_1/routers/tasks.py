@@ -8,11 +8,10 @@ from typing import Any, OrderedDict
 import jsonschema
 from dependency_injector.wiring import Provide, inject
 from jsonschema import exceptions
-from mhd_model.model import SUPPORTED_SCHEMA_MAP
+from mhd_model.model.definitions import SUPPORTED_SCHEMA_MAP
 from mhd_model.model.v0_1.announcement.profiles.base.profile import (
     AnnouncementBaseProfile,
 )
-from mhd_model.model.v0_1.announcement.validation.base import ProfileValidator
 from mhd_model.model.v0_1.announcement.validation.validator import (
     MhdAnnouncementFileValidator,
 )
@@ -29,6 +28,7 @@ from mhd_ws.infrastructure.persistence.db.mhd import (
     Dataset,
     DatasetRevision,
     DatasetRevisionStatus,
+    DatasetStatus,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.models import (
     CreateDatasetRevisionModel,
@@ -48,36 +48,9 @@ def validate_announcement_file(announcement_file_json: dict[str, Any]):
     validator = MhdAnnouncementFileValidator()
 
     all_errors = validator.validate(announcement_file_json)
-
-    number = 0
-    profile_validator = ProfileValidator()
-
-    def add_all_leaves(
-        err: jsonschema.ValidationError, leaves: list[jsonschema.ValidationError]
-    ):
-        if err.validator in profile_validator.validators:
-            if not err.context:
-                leaves.append((err.absolute_path, err))
-            else:
-                for x in err.context:
-                    add_all_leaves(x, leaves)
-
-    errors: OrderedDict = OrderedDict()
+    errors = OrderedDict()
     for idx, x in enumerate(all_errors, start=1):
-        match = exceptions.best_match([x])
-        error = (json_path(match.absolute_path), match.message)
-
-        if match.validator in profile_validator.validators:
-            leaves = []
-            add_all_leaves(match, leaves)
-            for leaf in leaves:
-                key = json_path(leaf[0])
-                value = leaf[1].message
-                number += 1
-                errors[str(number)] = f"{key}: {value}"
-        else:
-            number += 1
-            errors[str(number)] = f"{error[0]}: {error[1]}"
+        errors[str(idx)] = x
     return errors
 
 
@@ -233,6 +206,7 @@ async def add_submission(
                 db_dataset.updated_at = now
                 db_dataset.revision = revision
                 db_dataset.revision_datetime = now
+                db_dataset.status = DatasetStatus.PUBLIC
 
                 session.add(announcement_file)
                 session.add(dataset_revision)
@@ -321,7 +295,9 @@ async def announcement_file_validation(
         schema_uri=announcement_file_json.get("$schema", ""),
         profile_uri=announcement_file_json.get("profile_uri", ""),
         mhd_identifier=announcement_file_json.get("mhd_identifier", ""),
-        repository_identifier=announcement_file_json.get("repository_identifier", ""),
+        dataset_repository_identifier=announcement_file_json.get(
+            "repository_identifier", ""
+        ),
         repository_revision=announcement_file_json.get("repository_revision", None),
         repository_revision_datetime=announcement_file_json.get(
             "repository_revision_datetime", None
@@ -417,7 +393,7 @@ async def common_dataset_file_validation(
         schema_uri=file_json.get("$schema", ""),
         profile_uri=file_json.get("profile_uri", ""),
         mhd_identifier=file_json.get("mhd_identifier", ""),
-        repository_identifier=file_json.get("repository_identifier", ""),
+        dataset_repository_identifier=file_json.get("repository_identifier", ""),
         repository_revision=file_json.get("repository_revision", None),
         repository_revision_datetime=file_json.get(
             "repository_revision_datetime", None

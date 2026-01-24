@@ -85,6 +85,21 @@ class DatasetRevisionStatus(enum.IntEnum):
     VALID = 1
 
 
+class AccessionType(enum.StrEnum):
+    MHD = "mhd"
+    LEGACY = "legacy"
+    TEST = "test"
+    DEV = "dev"
+
+
+ACCESSION_TYPE_PREFIX_MAP = {
+    AccessionType.MHD: "MHD",
+    AccessionType.LEGACY: "MHDL",
+    AccessionType.TEST: "MHDT",
+    AccessionType.DEV: "MHDD",
+}
+
+
 class Identifier(Base):
     __tablename__ = "identifier"
     __field_alias_exceptions__: dict[str, str] = {
@@ -177,6 +192,9 @@ class Dataset(Base):
 
     id: Mapped[int] = mapped_column(Integer, unique_identifier_seq, primary_key=True)
     accession: Mapped[str] = mapped_column(String(255))
+    accession_type: Mapped[AccessionType] = mapped_column(
+        String(255), nullable=False, server_default="mhd"
+    )
     dataset_repository_identifier: Mapped[str] = mapped_column(
         String(255), nullable=False
     )

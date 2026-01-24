@@ -7,24 +7,23 @@ from dependency_injector.wiring import Provide, inject
 from fastapi import (
     APIRouter,
     Depends,
-    Header,
     Query,
     Response,
 )
-from fastapi import (
-    status as fastapi_status,
-)
-from pydantic import BaseModel, Field, field_serializer
+from fastapi import status as http_status
+from pydantic import Field, field_serializer
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.domain.shared.model import MhdBaseModel
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
+    AccessionType,
     Dataset,
     DatasetStatus,
-    Identifier,
-    Repository,
+)
+from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db_utils import (
+    create_new_identifier,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.dependencies import (
     RepositoryModel,
@@ -43,12 +42,26 @@ class DatasetModel(MhdBaseModel):
             title="MHD Identifier", description="Assigned MetabolomicsHub identifier"
         ),
     ]
+    accession_type: Annotated[
+        AccessionType,
+        Field(
+            title="Accession Type", description="Accession type. mhd, legacy, test, dev"
+        ),
+    ]
     created_at: Annotated[
         datetime.datetime, Field(title="Created Time", description="Created datetime")
     ]
     updated_at: Annotated[
         datetime.datetime | None,
         Field(title="Updated Time", description="Updated datetime"),
+    ] = None
+    revision: Annotated[
+        None | int,
+        Field(title="Revision Number", description="Revision number"),
+    ] = None
+    revision_datetime: Annotated[
+        None | datetime.datetime,
+        Field(title="Revision Datetime", description="Revision datetime"),
     ] = None
     status: Annotated[
         DatasetStatus,
@@ -88,13 +101,13 @@ class ExtendedRepositoryDataset(RepositoryDataset):
     ] = None
 
 
-class AssignNewIdentifierResponse(BaseModel):
+class AssignNewIdentifierResponse(MhdBaseModel):
     repository_name: str | None = None
     assignment: ExtendedRepositoryDataset | None = None
     message: str | None = None
 
 
-class IdentifiersResponse(BaseModel):
+class IdentifiersResponse(MhdBaseModel):
     repository_name: str | None = None
     identifiers: list[RepositoryDataset] = []
     message: str | None = None
@@ -107,8 +120,13 @@ This unique identifier is meaningful only within the repository and
 is used to define a one-to-one link between the repository dataset and MetabolomicsHub.
 """
 
-accession_table_prefix = "mhd"
-dataset_accession_prefix = "MHDA"
+
+class AccessionTypeQuery(enum.StrEnum):
+    NONE = "-"
+    MHD = "mhd"
+    LEGACY = "legacy"
+    TEST = "test"
+    DEV = "dev"
 
 
 @router.post(
@@ -131,88 +149,53 @@ async def request_new_identifier(
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)],
     dataset_repository_identifier: Annotated[
         str,
-        Header(
+        Query(
             title="Repository identifier that links to the repository dataset.",
             description=repository_id_description,
-            alias="x-dataset-repository-identifier",
         ),
     ],
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
+    accession_type: Annotated[
+        AccessionTypeQuery,
+        Query(
+            title="Accession type",
+            description="Accession type.",
+        ),
+    ],
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ):
     if not repository:
-        response.status_code = fastapi_status.HTTP_403_FORBIDDEN
-        return {"message": "Unauthorized request."}
-    async with db_client.session() as session:
-        stmt = select(Repository).where(Repository.id == repository.id).limit(1)
-        result = await session.execute(stmt)
-        db_repository = result.scalar_one_or_none()
-        ref_id = dataset_repository_identifier
-        query = select(Dataset)
-        query = query.where(Dataset.dataset_repository_identifier == ref_id)
-        query = query.where(Dataset.repository_id == repository.id)
-        stmt = query.limit(1)
+        response.status_code = http_status.HTTP_403_FORBIDDEN
+        return AssignNewIdentifierResponse(
+            assignment=None, message="Unauthorized request."
+        )
 
-        result = await session.execute(stmt)
-        current_dataset = result.scalar_one_or_none()
-        if current_dataset is not None:
-            response.status_code = fastapi_status.HTTP_400_BAD_REQUEST
-            session.rollback()
-
-            return AssignNewIdentifierResponse(
-                assignment=None,
-                message=f"{repository.name} dataset with identifier {ref_id} already exists.",
-            )
-
-        try:
-            dataset = Dataset(
-                repository=db_repository,
-                dataset_repository_identifier=dataset_repository_identifier,
-                status=DatasetStatus.PRIVATE,
-            )
-            stmt = (
-                select(Identifier)
-                .where(Identifier.prefix == accession_table_prefix)
-                .limit(1)
-                .with_for_update()
-            )
-            result = await session.execute(stmt)
-            last_accession = result.scalar_one_or_none()
-            if not last_accession:
-                await session.rollback()
-                response.status_code = fastapi_status.HTTP_500_INTERNAL_SERVER_ERROR
-                return AssignNewIdentifierResponse(
-                    assignment=None, message="Failed to create new MHD identifier."
-                )
-            last_accession.last_identifier += 1
-            dataset.accession = (
-                f"{dataset_accession_prefix}{last_accession.last_identifier:06}"
-            )
-            session.add(dataset)
-            await session.commit()
-            await session.refresh(dataset)
-            logger.info(
-                "New MHD identifier %s created for %s.",
-                dataset.accession,
-                repository.name,
-            )
-            return AssignNewIdentifierResponse(
-                assignment=ExtendedRepositoryDataset(
-                    dataset_repository_identifier=dataset_repository_identifier,
-                    accession=dataset.accession,
-                    created_at=dataset.created_at,
-                    status=dataset.status,
-                    repository_name=repository.name,
-                ),
-                repository_name=repository.name,
-            )
-
-        except Exception as e:
-            await session.rollback()
-            logger.error("Failed to create new MHD identifier: %s", str(e))
-            return AssignNewIdentifierResponse(
-                assignment=None, message="Failed to create new MHD identifier."
-            )
+    if accession_type == AccessionTypeQuery.NONE:
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
+        return AssignNewIdentifierResponse(
+            assignment=None, message="Accession type is required."
+        )
+    selected_accession_type = AccessionType(accession_type.value)
+    dataset, message = await create_new_identifier(
+        db_client, selected_accession_type, repository, dataset_repository_identifier
+    )
+    if not dataset:
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
+        return AssignNewIdentifierResponse(
+            assignment=None, message=message or "Failed to create new MHD identifier."
+        )
+    return AssignNewIdentifierResponse(
+        assignment=ExtendedRepositoryDataset(
+            accession_type=dataset.accession_type,
+            accession=dataset.accession,
+            dataset_repository_identifier=dataset_repository_identifier,
+            created_at=dataset.created_at,
+            status=dataset.status,
+            repository_name=repository.name,
+            revision_number=dataset.revision,
+            revision_datetime=dataset.revision_datetime,
+        ),
+        repository_name=repository.name,
+    )
 
 
 class DatasetStatusQuery(enum.StrEnum):
@@ -247,35 +230,54 @@ async def get_identifiers(
             description="Repository identifier of the requested dataset.",
         ),
     ] = None,
+    accession_type: Annotated[
+        list[AccessionType],
+        Query(
+            title="Accession type",
+            description="Accession type.",
+            min_length=1,
+        ),
+    ] = [AccessionType.MHD, AccessionType.LEGACY],
     status: Annotated[
-        None | DatasetStatusQuery,
+        list[DatasetStatusQuery],
         Query(
             title="Dataset status.",
             description="Dataset status.",
+            min_length=1,
         ),
-    ] = None,
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
+    ] = [DatasetStatusQuery.PRIVATE, DatasetStatusQuery.PUBLIC],
+    # cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
 ):
     if not repository:
-        response.status_code = fastapi_status.HTTP_403_FORBIDDEN
+        response.status_code = http_status.HTTP_403_FORBIDDEN
         return IdentifiersResponse(
             message="Unauthorized request.",
             identifiers=[],
             repository_name=None,
         )
+
     query = select(Dataset).where(Dataset.repository_id == repository.id)
+    where = []
     if accession:
-        query = query.where(Dataset.accession == accession)
+        where.append(Dataset.accession == accession)
+
     if dataset_repository_identifier:
-        query = query.where(
+        where.append(
             Dataset.dataset_repository_identifier == dataset_repository_identifier
         )
+    if accession_type:
+        where.append(Dataset.accession_type.in_(accession_type))
     if status:
-        query = query.where(Dataset.status == DatasetStatus[status.value])
+        where.append(Dataset.status.in_([DatasetStatus[x.value] for x in status]))
+
+    if where:
+        query = query.where(*where)
 
     stmt = query.order_by(Dataset.accession.asc())
-    async with db_client.session() as session:
+
+    async with db_client.session() as a_session:
+        session: AsyncSession = a_session
         result = await session.execute(stmt)
         db_assignments = result.scalars().all()
         assignments = [

@@ -1,3 +1,3 @@
-# Metabolomics Hub Server
+# MetabolomicsHub Server
 
-Current version: 0.0.1
+Current version: 0.0.2
