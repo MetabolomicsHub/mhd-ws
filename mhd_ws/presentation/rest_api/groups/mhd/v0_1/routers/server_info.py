@@ -2,7 +2,6 @@ import json
 from logging import getLogger
 from typing import Annotated
 
-from dependency_injector.wiring import inject
 from fastapi import APIRouter, Header, Response, status
 from fastapi.responses import StreamingResponse
 from mhd_model.model.definitions import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
@@ -55,7 +54,6 @@ async def get_server_info():
     summary="Get announcement file schema and profiles.",
     description="Get announcement file profile.",
 )
-@inject
 async def get_profile(
     response: Response,
     uri: Annotated[
