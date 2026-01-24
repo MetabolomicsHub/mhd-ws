@@ -81,12 +81,24 @@ build_image:
 
 deploy_ws_worker:
   stage: deploy-ws-worker
+  image:
+    name: ${CICD_GITLAB_REGISTRY}alpine/k8s:1.23.17
+    pull_policy: if-not-present
+  tags:
+  - docker
+  - mtbls
   variables:
     CHART_NAME: mhd-ws-worker
   extends: .kube_deploy_script
 
 deploy_ws:
   stage: deploy-ws
+  image:
+    name: ${CICD_GITLAB_REGISTRY}alpine/k8s:1.23.17
+    pull_policy: if-not-present
+  tags:
+  - docker
+  - mtbls
   variables:
     CHART_NAME: mhd-ws
   extends: .kube_deploy_script
