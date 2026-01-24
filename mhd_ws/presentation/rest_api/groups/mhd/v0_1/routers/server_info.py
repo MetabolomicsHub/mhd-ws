@@ -5,7 +5,7 @@ from typing import Annotated
 from dependency_injector.wiring import inject
 from fastapi import APIRouter, Header, Response, status
 from fastapi.responses import StreamingResponse
-from mhd_model.model import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
+from mhd_model.model.definitions import SUPPORTED_SCHEMA_MAP, SupportedSchemaMap
 from mhd_model.schema_utils import load_mhd_json_schema
 from pydantic import Field
 
@@ -31,8 +31,8 @@ class MhdServerInfo(MhdBaseModel):
     supported_schemas: Annotated[
         SupportedSchemaMap,
         Field(
-            title="Supported schemas and prrofiles",
-            description="Supported schemas and prrofiles.",
+            title="Supported schemas and profiles",
+            description="Supported schemas and profiles.",
         ),
     ]
 
@@ -46,7 +46,6 @@ server_info = MhdServerInfo(version="0.0.1", supported_schemas=SUPPORTED_SCHEMA_
     description="Show information about MetabolomicsHub server.",
     response_model=MhdServerInfo,
 )
-@inject
 async def get_server_info():
     return server_info
 
@@ -64,6 +63,7 @@ async def get_profile(
         Header(
             title="Schema or profile URI.",
             description="Schema or profile URI.",
+            alias="x-uri",
         ),
     ],
 ):

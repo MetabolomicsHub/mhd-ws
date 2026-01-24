@@ -11,7 +11,12 @@
             "program": "${workspaceFolder}/mhd_ws/run/rest_api/mhd/main.py",
             "console": "integratedTerminal",
             "cwd": "${cwd}",
-            "env": {"PYTHONPATH": "${workspaceFolder}", "PYDEVD_DISABLE_FILE_VALIDATION": "1", "MHD_CONFIG_FILE": "config.yaml", "MHD_CONFIG_SECRETS_FILE": "config-secrets.yaml"},
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1",
+                "MHD_CONFIG_FILE": "mhd-ws-config.yaml",
+                "MHD_CONFIG_SECRETS_FILE": "./secrets/mhd-ws-secrets.yaml"
+            },
             "justMyCode": false
         },
         {
@@ -21,19 +26,60 @@
             "program": "${workspaceFolder}/mhd_ws/run/worker/mhd/main.py",
             "console": "integratedTerminal",
             "cwd": "${cwd}",
-            "env": {"PYTHONPATH": "${workspaceFolder}"},
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1",
+                "MHD_CONFIG_FILE": "mhd-ws-config.yaml",
+                "MHD_CONFIG_SECRETS_FILE": "./secrets/mhd-ws-secrets.yaml"
+            },
             "jinja": true,
             "justMyCode": false
         },
-                {
+        {
             "name": "Python: Run Current file",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "env": {"PYTHONPATH": "${cwd}"},
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
             "justMyCode": false
         },
+        {
+            "name": "Alembic: Upgrade Heads",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/alembic_runner.py",
+            "args": [
+                "upgrade",
+                "heads"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "Alembic: Downgrade Base",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/alembic_runner.py",
+            "args": [
+                "downgrade",
+                "base"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "justMyCode": false
+        }
     ]
 }

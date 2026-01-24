@@ -1,7 +1,7 @@
 [project]
 name = "mhd-ws"
 version = "0.0.1"
-description = "Metabolomics Hub WebServices"
+description = "MetabolomicsHub WebServices"
 authors = [{"name" = "MetaboLights Team", "email" =  "metabolights-dev@ebi.ac.uk"}]
 license = "Apache-2.0"
 readme = "README.md"
@@ -23,9 +23,10 @@ dependencies = [
     "httpx>=0.28.1",
     "jinja2>=3.1.6",
     "jsonpath-ng>=1.7.0",
-    "mhd-model>=0.0.13",
+    "mhd-model>=0.0.17",
     "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.7",
+    "pydantic-settings>=2.12.0",
     "pyjwt>=2.10.1",
     "python-dateutil>=2.9.0.post0",
     "python-multipart>=0.0.20",

@@ -58,7 +58,7 @@ class FileValidationModel(BaseModel):
     schema_uri: str
     profile_uri: str
     mhd_identifier: str
-    repository_identifier: str
+    dataset_repository_identifier: str
     repository_revision: None | int = None
     repository_revision_datetime: None | str = None
 

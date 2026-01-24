@@ -14,9 +14,7 @@ from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.domain.domain_services.configuration_generator import (
     create_config_from_dict,
 )
-from mhd_ws.infrastructure.cache.redis_sentinel.redis_sentinel_impl import (
-    RedisSentinelCacheImpl,
-)
+from mhd_ws.infrastructure.cache.redis.redis_impl import RedisCacheImpl
 from mhd_ws.infrastructure.pub_sub.celery.celery_impl import (
     CeleryAsyncTaskService,
 )
@@ -65,7 +63,7 @@ class MhdWorkerServicesContainer(containers.DeclarativeContainer):
     #     temp_path="/tmp/study-metadata-service",
     # )
     cache_service: CacheService = providers.Factory(
-        RedisSentinelCacheImpl,
+        RedisCacheImpl,
         config=cache_config,
     )
     # validation_override_service: ValidationOverrideService = providers.Singleton(
@@ -117,7 +115,7 @@ class MhdWorkerApplicationContainer(containers.DeclarativeContainer):
         core=core,
         repositories=repositories,
         gateways=gateways,
-        cache_config=config.gateways.cache.redis_sentinel.connection,
+        cache_config=config.gateways.cache.redis.connection,
     )
 
     module_config: ModuleConfiguration = providers.Resource(

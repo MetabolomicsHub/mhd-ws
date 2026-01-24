@@ -1,9 +1,14 @@
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
+import yaml
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.orm import DeclarativeBase
+
+from mhd_ws.run.config_renderer import render_config_secrets
+from mhd_ws.run.rest_api.mhd.containers import MHD_CONFIG_FILE, MHD_CONFIG_SECRETS_FILE
 
 
 class Base(DeclarativeBase):
@@ -19,9 +24,38 @@ class Base(DeclarativeBase):
         return {}
 
 
+def get_db_url(config_file, secrets_file):
+    with Path(config_file).open("r") as f:
+        config = yaml.safe_load(f)
+
+    if secrets_file and Path(secrets_file).exists():
+        with Path(secrets_file).open("r") as f:
+            secrets = yaml.safe_load(f)
+        config = render_config_secrets(config, secrets)
+
+    db_config = (
+        config.get("gateways", {})
+        .get("database", {})
+        .get("postgresql", {})
+        .get("connection", {})
+    )
+
+    user = db_config.get("user")
+    password = db_config.get("password")
+    host = db_config.get("host")
+    port = db_config.get("port")
+    db_name = db_config.get("database")
+
+    # Force use of psycopg2 for Alembic (sync)
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}"
+
+
+db_url = get_db_url(MHD_CONFIG_FILE, MHD_CONFIG_SECRETS_FILE)
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
