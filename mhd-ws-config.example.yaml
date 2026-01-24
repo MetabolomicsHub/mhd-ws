@@ -1,5 +1,6 @@
 gateways:
   cache:
+    selected_cache_provider: redis
     redis:
       connection:
         password: my_redis_password
