@@ -314,7 +314,7 @@ async def make_new_announcement(
                 return MhdAsyncTaskResponse(accession=accession, errors=[error])
 
             if not dataset:
-                dataset, message = create_new_identifier(
+                dataset, message = await create_new_identifier(
                     db_client,
                     AccessionType.LEGACY,
                     repository,
