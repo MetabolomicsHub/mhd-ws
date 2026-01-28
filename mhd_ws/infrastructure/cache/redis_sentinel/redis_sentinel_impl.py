@@ -1,7 +1,7 @@
 from typing import Any, Union
 
 import redis.asyncio as redis
-from redis.sentinel import Sentinel
+from redis.asyncio.sentinel import Sentinel
 
 from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.infrastructure.cache.redis_sentinel.redis_sentinel_config import (
@@ -11,85 +11,83 @@ from mhd_ws.infrastructure.cache.redis_sentinel.redis_sentinel_config import (
 
 class RedisSentinelCacheImpl(CacheService):
     def __init__(self, config: dict[str, Any]):
-        self.connection = RedisSentinelConnection.model_validate(config)
-        connections = [(x.host, x.port) for x in self.connection.sentinel_services if x]
-        self.sentinel = Sentinel(
-            connections,
-            socket_timeout=self.connection.socket_timeout,
+        self._conn = RedisSentinelConnection.model_validate(config)
+        sentinels: list[tuple[str, int]] = [
+            (s.host, s.port) for s in (self._conn.sentinel_services or [])
+        ]
+        if not sentinels:
+            raise ValueError("sentinel_services must not be empty")
+
+        self._sentinel = Sentinel(
+            sentinels,
+            socket_timeout=self._conn.socket_timeout,
             decode_responses=True,
             sentinel_kwargs={
-                "password": self.connection.password,
+                "password": self._conn.password,
             },
         )
 
-        self.service_name = self.connection.master_name
-        sc = self.connection
+        self._master: redis.Redis = self._sentinel.master_for(
+            service_name=self._conn.master_name,
+            redis_class=redis.Redis,
+            db=self._conn.db,
+            password=self._conn.password or None,
+            socket_timeout=self._conn.socket_timeout,
+            socket_connect_timeout=self._conn.socket_timeout,
+            max_connections=self._conn.max_connections,
+            decode_responses=True,
+        )
+        sc = self._conn
         self.url_repr = ";".join(
-            [
-                f"sentinel://:***@{service.host}:{service.port}/{sc.db}"
-                for service in sc.sentinel_services
-            ]
+            [f"sentinel://:***@{x.host}:{x.port}/{sc.db}" for x in sc.sentinel_services]
         )
 
     async def get_connection_repr(self) -> None:
         return self.url_repr
 
-    async def _get_master_connection(self) -> redis.Redis:
-        redis_master = self.sentinel.master_for(
-            self.service_name,
-            redis_class=redis.Redis,
-            db=self.connection.db,
-            password=self.connection.password,
-            decode_responses=True,
-            socket_connect_timeout=self.connection.socket_timeout,
-        )
-        return redis_master
-
-    async def _get_slave_connection(self) -> redis.Redis:
-        redis_slave = self.sentinel.slave_for(
-            self.service_name,
-            redis_class=redis.Redis,
-            db=self.connection.db,
-            password=self.connection.password,
-            decode_responses=True,
-            socket_connect_timeout=self.connection.socket_timeout,
-        )
-        return redis_slave
-
     async def keys(self, key_pattern: str) -> list[str]:
-        master = await self._get_master_connection()
-        return await master.keys(key_pattern)
+        # Use SCAN instead of KEYS to avoid blocking Redis
+        cursor = 0
+        out: list[str] = []
+        while True:
+            cursor, batch = await self._master.scan(
+                cursor=cursor, match=key_pattern, count=1000
+            )
+            out.extend(batch)
+            if cursor == 0:
+                break
+        return out
 
     async def does_key_exist(self, key: str) -> bool:
-        slave = await self._get_slave_connection()
-        return await slave.exists(key) > 0
+        return bool(await self._master.exists(key))
 
     async def get_value(self, key: str) -> Any:
-        slave = await self._get_slave_connection()
-        return await slave.get(key)
+        return await self._master.get(key)
 
     async def set_value_with_expiration_time(
         self, key: str, value: Any, expiration_timestamp: int
     ):
-        master = await self._get_master_connection()
-        return await master.setex(key, expiration_timestamp, value)
+        await self._master.set(key, value, exat=expiration_timestamp)
 
     async def set_value(
-        self, key: str, value: Any, expiration_time_in_seconds: Union[None, int] = None
+        self,
+        key: str,
+        value: Any,
+        expiration_time_in_seconds: Union[None, int] = None,
     ) -> bool:
-        master = await self._get_master_connection()
-        if expiration_time_in_seconds:
-            return await master.setex(key, expiration_time_in_seconds, value)
-        return await master.set(key, value)
+        if expiration_time_in_seconds is None:
+            return bool(await self._master.set(key, value))
+
+        return bool(
+            await self._master.set(key, value, ex=int(expiration_time_in_seconds))
+        )
 
     async def delete_key(self, key: str) -> bool:
-        master = await self._get_master_connection()
-        return await master.delete(key) > 0
+        return (await self._master.delete(key)) > 0
 
-    async def get_ttl_in_seconds(self, key: str) -> int:
-        slave = await self._get_slave_connection()
-        return await slave.ttl(key)
+    async def get_ttl_in_seconds(self, key) -> int:
+        # -2: key doesn't exist, -1: no expiry, >=0: seconds remaining
+        return int(await self._master.ttl(key))
 
     async def ping(self) -> None:
-        master = await self._get_master_connection()
-        return master.ping()
+        return bool(await self._master.ping())

@@ -15,3 +15,4 @@ class RedisSentinelConnection(BaseModel):
     db: int = 10
     sentinel_services: List[RedisSentinelService] = []
     socket_timeout: float = 0.5
+    max_connections: int = 30
