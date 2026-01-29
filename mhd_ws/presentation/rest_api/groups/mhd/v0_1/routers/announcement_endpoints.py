@@ -261,7 +261,7 @@ async def make_new_announcement(
         response.status_code = http_status.HTTP_401_UNAUTHORIZED
         error = "Repository token is not valid"
         return MhdAsyncTaskResponse(accession=accession, errors=[error])
-
+    accession_type = None
     dataset: None | Dataset = None
     async with db_client.session() as session:
         where = [Dataset.repository_id == repository.id]
@@ -274,7 +274,8 @@ async def make_new_announcement(
 
         stmt = select(Dataset).where(*where)
         result = await session.execute(stmt)
-        dataset = result.scalar()
+        dataset: Dataset | None = result.scalar()
+        accession_type = dataset.accession_type if dataset else None
 
     file_cache_key = f"new-announcement:{accession}"
     task_id = await cache_service.get_value(file_cache_key)
@@ -302,7 +303,8 @@ async def make_new_announcement(
             return MhdAsyncTaskResponse(accession=accession, errors=[error])
         if legacy_profile:
             if (
-                dataset_repository_identifier != accession
+                accession_type == AccessionType.LEGACY
+                and dataset_repository_identifier != accession
                 and dataset_repository_identifier != mhd_identifier
             ):
                 response.status_code = http_status.HTTP_400_BAD_REQUEST
