@@ -54,15 +54,17 @@ class AuthBackend(AuthenticationBackend):
         #     return AuthCredentials(["unauthenticated"]), UnauthenticatedUser()
 
         resource_id = self.fetch_resource_id(conn.url.path)
+        route_path = "/" + str(conn.url).removeprefix(str(conn.base_url))
+        route_path, _, _ = route_path.partition("?")
         signed_jwt_authorization_required = False
         for endpoint in self.signed_jwt_authorizations:
-            if conn.url.path.startswith(endpoint.prefix):
+            if route_path.startswith(endpoint.prefix):
                 signed_jwt_authorization_required = True
                 break
 
         api_token_authorization_required = False
         for endpoint in self.api_token_authorizations:
-            if conn.url.path.startswith(endpoint.prefix):
+            if route_path.startswith(endpoint.prefix):
                 api_token_authorization_required = True
                 break
 
