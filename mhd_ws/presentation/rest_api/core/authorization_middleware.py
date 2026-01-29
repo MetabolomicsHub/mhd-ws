@@ -1,5 +1,6 @@
 import logging
 import time
+import traceback
 from typing import Any, Union
 
 from asgi_correlation_id import context
@@ -101,6 +102,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
             logger.debug(access_request_message)
             response = await call_next(request)
         except AuthorizationError as ex:
+            traceback.print_exc()
             if user.is_authenticated:
                 message = f"Authorization error for user {user.display_name}: {str(ex)}"
             else:
