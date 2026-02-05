@@ -77,16 +77,9 @@ def validate_common_dataset_file(file_json: dict[str, Any]):
                     item.parent = error
                     update_context(item, error)
 
-    errors: OrderedDict = OrderedDict(
-        [
-            (
-                str(idx),
-                f"{json_path(x.absolute_path)}: {exceptions.best_match([x]).message}",
-            )
-            for idx, x in enumerate(all_errors)
-        ]
-    )
-
+    errors: OrderedDict = OrderedDict()
+    for idx, x in enumerate(all_errors):
+        errors[str(idx)] = f"{x[0]}: {exceptions.best_match([x[1]]).message}"
     return errors
 
 
@@ -134,14 +127,10 @@ async def add_submission(
                 mhd_file_json = json.loads(mhd_file.read())
 
         except Exception as e:
-            logger.error(
-                "Failed to get mhd common data model file from URL %s",
-                mhd_metadata_file_url,
-            )
+            message = (f"Failed to get mhd common data model file from URL {e}",)
+            logger.error(message)
             return TaskResult[CreateDatasetRevisionModel](
-                success=False,
-                message="Failed to get mhd metadata file.",
-                errors={"error": str(e)},
+                success=False, message=message, errors={"error": str(e)}
             ).model_dump()
         if not mhd_file_json:
             logger.error("%s mhd file is empty", accession)
