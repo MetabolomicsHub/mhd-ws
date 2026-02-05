@@ -303,7 +303,7 @@ async def make_new_announcement(
             return MhdAsyncTaskResponse(accession=accession, errors=[error])
         if legacy_profile:
             if (
-                accession_type == AccessionType.LEGACY
+                accession_type in (AccessionType.TEST_LEGACY, AccessionType.LEGACY)
                 and dataset_repository_identifier != accession
                 and dataset_repository_identifier != mhd_identifier
             ):
@@ -318,7 +318,7 @@ async def make_new_announcement(
             if not dataset:
                 dataset, message = await create_new_identifier(
                     db_client,
-                    AccessionType.LEGACY,
+                    accession_type,
                     repository,
                     dataset_repository_identifier,
                 )

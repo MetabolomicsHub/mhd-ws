@@ -125,7 +125,8 @@ class AccessionTypeQuery(enum.StrEnum):
     NONE = "-"
     MHD = "mhd"
     LEGACY = "legacy"
-    TEST = "test"
+    TEST_MHD = "test-mhd"
+    TEST_LEGACY = "test-legacy"
     DEV = "dev"
 
 

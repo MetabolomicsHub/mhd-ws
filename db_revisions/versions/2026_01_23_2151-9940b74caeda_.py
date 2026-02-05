@@ -25,12 +25,9 @@ def upgrade() -> None:
         sa.Column("accession_type", sa.String(), nullable=False, server_default="mhd"),
     )
     op.execute(
-        "UPDATE dataset SET accession_type = 'test' WHERE accession LIKE 'MHDT%'"
+        "UPDATE dataset SET accession_type = 'test-mhd' WHERE accession LIKE 'MHDT%'"
     )
     op.execute("UPDATE dataset SET accession_type = 'dev' WHERE accession LIKE 'MHDD%'")
-    op.execute(
-        "UPDATE dataset SET accession_type = 'legacy' WHERE accession NOT LIKE 'MHD%'"
-    )
 
 
 def downgrade() -> None:
