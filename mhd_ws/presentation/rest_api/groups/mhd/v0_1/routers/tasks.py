@@ -117,21 +117,13 @@ async def add_submission(
         announcement = AnnouncementBaseProfile.model_validate(announcement_file_json)
         mhd_metadata_file_url = announcement.mhd_metadata_file_url
         mhd_file = StringIO()
+        mhd_file_json = {}
         try:
             with httpx.Client() as client:
                 r = client.get(mhd_metadata_file_url)
                 r.raise_for_status()
                 mhd_file = StringIO(r.text)
                 mhd_file_json = json.loads(mhd_file.read())
-                errors = validate_common_dataset_file(mhd_file_json)
-                if errors:
-                    logger.error(
-                        "%s mhd file on %s has errors", accession, mhd_metadata_file_url
-                    )
-                    return TaskResult[CreateDatasetRevisionModel](
-                        success=False, message="MHD file is not valid.", errors=errors
-                    ).model_dump()
-                logger.info("MHD file schema is validated for %s", accession)
 
         except Exception as e:
             logger.error(
@@ -141,8 +133,36 @@ async def add_submission(
             return TaskResult[CreateDatasetRevisionModel](
                 success=False,
                 message="Failed to get mhd metadata file.",
-                errors={str(e)},
+                errors={"error": str(e)},
             ).model_dump()
+        if not mhd_file_json:
+            logger.error("%s mhd file is empty", accession)
+            return TaskResult[CreateDatasetRevisionModel](
+                success=False,
+                message="MHD file is empty.",
+                errors={"error": "MHD file is empty."},
+            ).model_dump()
+        try:
+            errors = validate_common_dataset_file(mhd_file_json)
+            if errors:
+                logger.error(
+                    "%s mhd file on %s has errors", accession, mhd_metadata_file_url
+                )
+                return TaskResult[CreateDatasetRevisionModel](
+                    success=False, message="MHD file is not valid.", errors=errors
+                ).model_dump()
+                logger.info("MHD file schema is validated for %s", accession)
+        except Exception as e:
+            logger.error(
+                "Failed to validate MHD file for %s",
+                accession,
+            )
+            return TaskResult[CreateDatasetRevisionModel](
+                success=False,
+                message="Failed to validate MHD file.",
+                errors={"error": str(e)},
+            ).model_dump()
+
         repository_revision = announcement.repository_revision
         repository_revision_datetime = announcement.repository_revision_datetime
         if repository_revision_datetime:
