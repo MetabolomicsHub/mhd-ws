@@ -116,11 +116,19 @@ async def add_submission(
         logger.info("Checked announcement file schema for %s", accession)
         announcement = AnnouncementBaseProfile.model_validate(announcement_file_json)
         mhd_metadata_file_url = announcement.mhd_metadata_file_url
+        if not mhd_metadata_file_url:
+            logger.error("%s mhd model file url is empty", accession)
+            return TaskResult[CreateDatasetRevisionModel](
+                success=False,
+                message="MHD model file url is empty.",
+                errors={"error": "MHD model file url is empty."},
+            ).model_dump()
+
         mhd_file = StringIO()
         mhd_file_json = {}
         try:
             with httpx.Client() as client:
-                r = client.get(mhd_metadata_file_url)
+                r = client.get(str(mhd_metadata_file_url))
                 r.raise_for_status()
                 mhd_file = StringIO(r.text)
                 mhd_file_json = json.loads(mhd_file.read())
