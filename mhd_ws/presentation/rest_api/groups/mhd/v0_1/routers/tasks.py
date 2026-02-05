@@ -2,9 +2,11 @@ import asyncio
 import datetime
 import hashlib
 import json
+from io import StringIO
 from logging import getLogger
 from typing import Any, OrderedDict
 
+import httpx
 import jsonschema
 from dependency_injector.wiring import Provide, inject
 from jsonschema import exceptions
@@ -113,6 +115,34 @@ async def add_submission(
 
         logger.info("Checked announcement file schema for %s", accession)
         announcement = AnnouncementBaseProfile.model_validate(announcement_file_json)
+        mhd_metadata_file_url = announcement.mhd_metadata_file_url
+        mhd_file = StringIO()
+        try:
+            with httpx.Client() as client:
+                r = client.get(mhd_metadata_file_url)
+                r.raise_for_status()
+                mhd_file = StringIO(r.text)
+                mhd_file_json = json.loads(mhd_file.read())
+                errors = validate_common_dataset_file(mhd_file_json)
+                if errors:
+                    logger.error(
+                        "%s mhd file on %s has errors", accession, mhd_metadata_file_url
+                    )
+                    return TaskResult[CreateDatasetRevisionModel](
+                        success=False, message="MHD file is not valid.", errors=errors
+                    ).model_dump()
+                logger.info("MHD file schema is validated for %s", accession)
+
+        except Exception as e:
+            logger.error(
+                "Failed to get mhd common data model file from URL %s",
+                mhd_metadata_file_url,
+            )
+            return TaskResult[CreateDatasetRevisionModel](
+                success=False,
+                message="Failed to get mhd metadata file.",
+                errors={str(e)},
+            ).model_dump()
         repository_revision = announcement.repository_revision
         repository_revision_datetime = announcement.repository_revision_datetime
         if repository_revision_datetime:

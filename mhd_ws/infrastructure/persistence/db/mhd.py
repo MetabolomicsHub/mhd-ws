@@ -88,14 +88,16 @@ class DatasetRevisionStatus(enum.IntEnum):
 class AccessionType(enum.StrEnum):
     MHD = "mhd"
     LEGACY = "legacy"
-    TEST = "test"
+    TEST_MHD = "test-mhd"
+    TEST_LEGACY = "test-legacy"
     DEV = "dev"
 
 
 ACCESSION_TYPE_PREFIX_MAP = {
     AccessionType.MHD: "MHD",
-    AccessionType.LEGACY: "MHDL",
-    AccessionType.TEST: "MHDT",
+    # AccessionType.LEGACY: "MHDL",
+    AccessionType.TEST_MHD: "MHDT",
+    # AccessionType.TEST_LEGACY: "MHD",
     AccessionType.DEV: "MHDD",
 }
 

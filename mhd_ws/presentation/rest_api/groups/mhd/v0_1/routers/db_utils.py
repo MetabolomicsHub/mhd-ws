@@ -53,7 +53,7 @@ async def create_new_identifier(
                 revision=0,
                 status=DatasetStatus.PRIVATE,
             )
-            if accession_type == AccessionType.LEGACY:
+            if accession_type in (AccessionType.LEGACY, AccessionType.TEST_LEGACY):
                 dataset.accession = dataset_repository_identifier
             else:
                 stmt = (

@@ -168,9 +168,10 @@ def create_identifier_table(unique_identifier_seq: sa.schema.Sequence):
         identifier,
         [
             {"id": 1, "prefix": "mhd", "last_identifier": 20},
-            {"id": 2, "prefix": "legacy", "last_identifier": 20},
-            {"id": 3, "prefix": "test", "last_identifier": 20},
-            {"id": 4, "prefix": "dev", "last_identifier": 20},
+            {"id": 2, "prefix": "legacy", "last_identifier": 1},
+            {"id": 3, "prefix": "test-mhd", "last_identifier": 1},
+            {"id": 4, "prefix": "test-legacy", "last_identifier": 1},
+            {"id": 5, "prefix": "dev", "last_identifier": 1},
         ],
         multiinsert=False,
     )
