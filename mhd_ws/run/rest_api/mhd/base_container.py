@@ -15,6 +15,13 @@ from mhd_ws.infrastructure.pub_sub.connection.redis import RedisConnectionProvid
 from mhd_ws.infrastructure.pub_sub.connection.redis_sentinel import (
     RedisSentinelConnectionProvider,
 )
+from mhd_ws.infrastructure.search.es.es_configuration import (
+    LegacyElasticSearchConfiguration,
+)
+from mhd_ws.infrastructure.search.es.legacy.es_legacy_search_gateway import (
+    ElasticsearchLegacyGateway,
+)
+from mhd_ws.infrastructure.search.es_client import ElasticsearchClient
 
 
 class GatewaysContainer(containers.DeclarativeContainer):
@@ -45,6 +52,17 @@ class GatewaysContainer(containers.DeclarativeContainer):
     )
 
     pub_sub_backend: PubSubConnection = pub_sub_broker
+
+    elasticsearch_client: ElasticsearchClient = providers.Singleton(
+        ElasticsearchClient,
+        config=config.database.elasticsearch.connection,
+    )
+
+    elasticsearch_legacy_gateway: ElasticsearchLegacyGateway = providers.Singleton(
+        ElasticsearchLegacyGateway,
+        client=elasticsearch_client,
+        config=providers.Factory(LegacyElasticSearchConfiguration),
+    )
 
 
 class RepositoriesContainer(containers.DeclarativeContainer):

@@ -1,0 +1,205 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "analysis": {
+      "normalizer": {
+        "lc": {
+          "type": "custom",
+          "filter": ["lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id": { "type": "keyword" },
+      "profile": { "type": "keyword" },
+
+      "repository": {
+        "properties": {
+          "name": { "type": "keyword", "normalizer": "lc" },
+          "identifier": { "type": "keyword", "normalizer": "lc" },
+          "revision": { "type": "integer" }
+        }
+      },
+
+      "study": {
+        "properties": {
+          "title": {
+            "type": "text",
+            "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
+          },
+          "description": { "type": "text" },
+          "license": { "type": "keyword" },
+          "dataset_urls": { "type": "keyword" }
+        }
+      },
+
+      "dates": {
+        "properties": {
+          "submission": { "type": "date" },
+          "public_release": { "type": "date" },
+          "indexed": { "type": "date" }
+        }
+      },
+
+      "data_provider": {
+        "properties": {
+          "value": { "type": "keyword" },
+          "accession": { "type": "keyword" },
+          "source": { "type": "keyword" }
+        }
+      },
+
+      "facets": {
+        "properties": {
+          "organisms": { "type": "keyword" },
+          "organism_accessions": { "type": "keyword" },
+
+          "diseases": { "type": "keyword" },
+          "disease_accessions": { "type": "keyword" },
+
+          "tissues": { "type": "keyword" },
+          "sample_types": { "type": "keyword" },
+
+          "characteristic_types": { "type": "keyword" },
+
+          "omics_types": { "type": "keyword" },
+          "measurement_types": { "type": "keyword" },
+          "assay_types": { "type": "keyword" },
+          "technology_types": { "type": "keyword" }
+        }
+      },
+
+      "assays": {
+        "properties": {
+          "count": { "type": "integer" }
+        }
+      },
+
+      "files": {
+        "properties": {
+          "metadata": { "properties": { "count": { "type": "integer" } } },
+          "raw": { "properties": { "count": { "type": "integer" } } },
+          "extensions": {
+            "type": "nested",
+            "properties": {
+              "extension": { "type": "keyword" },
+              "count": { "type": "integer" }
+            }
+          }
+        }
+      },
+
+      "people": {
+        "type": "nested",
+        "properties": {
+          "full_name": {
+            "type": "text",
+            "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
+          },
+          "emails": { "type": "keyword" },
+          "organizations": {
+            "properties": {
+              "id": { "type": "keyword" },
+              "name": { "type": "keyword" }
+            }
+          },
+          "roles": { "type": "keyword" }
+        }
+      },
+
+      "organizations": {
+        "type": "nested",
+        "properties": {
+          "id": { "type": "keyword" },
+          "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+          "address": { "type": "text" },
+          "role": { "type": "keyword" },
+          "direction": { "type": "keyword" }
+        }
+      },
+
+      "parameters": {
+        "type": "nested",
+        "properties": {
+          "type_name": { "type": "keyword" },
+          "type_accession": { "type": "keyword" },
+          "type_source": { "type": "keyword" },
+          "value": { "type": "keyword" },
+          "value_accession": { "type": "keyword" },
+          "value_source": { "type": "keyword" }
+        }
+      },
+
+      "instruments": {
+        "type": "nested",
+        "properties": {
+          "name": { "type": "keyword" },
+          "type_name": { "type": "keyword" },
+          "type_accession": { "type": "keyword" },
+          "type_source": { "type": "keyword" }
+        }
+      },
+
+      "mass_analyzers": {
+        "type": "nested",
+        "properties": {
+          "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+          "type_name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+          "type_accession": { "type": "keyword" },
+          "type_source": { "type": "keyword" }
+        }
+      },
+
+      "factors": {
+        "type": "nested",
+        "properties": {
+          "definition_name": { "type": "keyword" },
+          "type_name": { "type": "keyword" },
+          "type_accession": { "type": "keyword" },
+          "type_source": { "type": "keyword" },
+          "value": { "type": "keyword" },
+          "value_accession": { "type": "keyword" },
+          "value_source": { "type": "keyword" }
+        }
+      },
+
+      "project": {
+        "properties": {
+          "title": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+          "managed_by": { "type": "keyword" }
+        }
+      },
+
+      "protocols": {
+        "type": "nested",
+        "properties": {
+          "name": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+          "description": { "type": "text" },
+          "protocol_type": { "type": "keyword" },
+          "protocol_type_accession": { "type": "keyword" }
+        }
+      },
+
+      "publications": {
+        "type": "nested",
+        "properties": {
+          "title": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+          "doi": { "type": "keyword" }
+        }
+      },
+
+      "search_text": { "type": "text" },
+
+      "debug": {
+        "type": "object",
+        "enabled": false
+      }
+    }
+  }
+}

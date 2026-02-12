@@ -1,0 +1,67 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "analysis": {
+      "normalizer": {
+        "lc": {
+          "type": "custom",
+          "filter": ["lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id": { "type": "keyword" },
+      "dataset_id": { "type": "keyword", "normalizer": "lc" },
+      "profile": { "type": "keyword" },
+
+      "repository": {
+        "properties": {
+          "name": { "type": "keyword", "normalizer": "lc" },
+          "identifier": { "type": "keyword", "normalizer": "lc" },
+          "revision": { "type": "integer" }
+        }
+      },
+
+      "study": {
+        "properties": {
+          "title": {
+            "type": "text",
+            "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
+          }
+        }
+      },
+
+      "metabolite": {
+        "properties": {
+          "node_id": { "type": "keyword" },
+          "name": {
+            "type": "text",
+            "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
+          },
+          "accession": { "type": "keyword" },
+          "source": { "type": "keyword" },
+          "identifiers": {
+            "type": "nested",
+            "properties": {
+              "source": { "type": "keyword" },
+              "accession": { "type": "keyword" },
+              "name": { "type": "keyword" },
+              "type": { "type": "keyword" }
+            }
+          }
+        }
+      },
+
+      "raw": {
+        "type": "object",
+        "enabled": false
+      }
+    }
+  }
+}

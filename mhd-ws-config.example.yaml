@@ -18,6 +18,14 @@ gateways:
         password: mhd_password
         database: mhd
         url_scheme: postgresql+asyncpg
+    elasticsearch:
+      connection:
+        hosts:
+        - https://wwwdev.ebi.ac.uk/metabolights/es
+        api_keys:
+          legacy: REDACTED_ELASTICSEARCH_API_KEY
+        verify_certs: true
+        request_timeout: 5.0
 services: {}
 run:
   mhd_ws:
@@ -148,3 +156,27 @@ run:
       filters:
         default_filter:
           (): "mhd_ws.run.worker.mhd.log_filter.DefaultLogFilter"
+  cli:
+    logging:
+      version: 1
+      disable_existing_loggers: false
+      formatters:
+        text_formatter:
+          format: '%(levelname)-8s %(asctime)s %(name)s "%(message)s"'
+      handlers:
+        console:
+          class: "logging.StreamHandler"
+          level: DEBUG
+          formatter: "text_formatter"
+          stream: "ext://sys.stderr"
+      root:
+        level: INFO
+        handlers: [ "console" ]
+        propogate: true
+      loggers:
+        mhd_ws:
+          level: DEBUG
+          propogate: yes
+        elasticsearch:
+          level: WARNING
+          propogate: yes

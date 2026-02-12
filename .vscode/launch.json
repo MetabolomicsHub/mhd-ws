@@ -46,6 +46,29 @@
                 "PYTHONPATH": "${cwd}"
             },
             "justMyCode": false
+        },
+        {
+            "name": "MHD CLI: index datasets (upload + recreate)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "index",
+                "${workspaceFolder}/.temp",
+                "--upload",
+                "--recreate-index",
+                "--config-file",
+                "${workspaceFolder}/mhd-ws-config.yaml",
+                "--secrets-file",
+                "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "MHD_INDEX_NAME": "dataset_legacy_v1",
+                "MHD_METABOLITE_INDEX_NAME": "metabolite_legacy_v1"
+            },
+            "console": "integratedTerminal"
         }
     ]
 }

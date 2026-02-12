@@ -1,21 +1,29 @@
+from __future__ import annotations
+
 import datetime
 from logging import getLogger
-from typing import Annotated
+from typing import Annotated, Any
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Body, Depends, Query
 from fastapi.openapi.models import Example
-from mhd_model.model.v0_1.announcement.profiles.base.profile import (
-    AnnouncementBaseProfile,
-)
 from pydantic import Field
 
-from mhd_ws.application.services.interfaces.cache_service import CacheService
+from mhd_ws.application.services.interfaces.search_port import SearchPort
+from mhd_ws.domain.entities.search.index_search import (
+    FilterModel,
+    IndexSearchResult,
+    PageModel,
+)
 from mhd_ws.domain.shared.model import MhdBaseModel
+from mhd_ws.presentation.rest_api.core.responses import APIResponse
 
 logger = getLogger(__name__)
 
 router = APIRouter(tags=["MetabolomicsHub Search"], prefix="/v0_1")
+
+
+# -- request models -----------------------------------------------------------
 
 
 class FilterOption(MhdBaseModel):
@@ -69,55 +77,22 @@ class SearchOptions(MhdBaseModel):
     ] = None
 
 
-class DatasetSearchResult(MhdBaseModel):
-    skip: Annotated[
-        int, Field(title="Skipped results", description="Skipped results.")
-    ] = 0
-    size: Annotated[
-        int, Field(title="Current result size", description="Current result size.")
-    ] = 50
-    datasets: Annotated[
-        list[AnnouncementBaseProfile],
-        Field(
-            title="Matched MetabolomExchage Dataset List",
-            description="Matched MetabolomExchage Dataset List",
-        ),
-    ]
-
-
-class DatasetFileSearchResult(MhdBaseModel):
-    skip: Annotated[
-        int, Field(title="Skipped results", description="Skipped results.")
-    ] = 0
-    size: Annotated[
-        int, Field(title="Current result size", description="Current result size.")
-    ] = 50
-    files: Annotated[
-        list[AnnouncementBaseProfile],
-        Field(
-            title="Matched MetabolomExchage Dataset File List",
-            description="Matched MetabolomExchage Dataset File List",
-        ),
-    ]
+# -- endpoints ----------------------------------------------------------------
 
 
 @router.post(
-    "/datasets/searches",
+    "/search/datasets",
     summary="Search datasets",
     description="Search Datasets",
-    response_model=DatasetSearchResult,
+    response_model=APIResponse[IndexSearchResult],
     responses={
-        201: {
-            "description": "New MHD identifier is created.",
-        },
-        401: {
-            "description": "Unauthorized request.",
-        },
+        200: {"description": "Search results."},
+        400: {"description": "Bad request."},
     },
-    include_in_schema=False,
+    include_in_schema=True,
 )
 @inject
-async def request_new_identifier(
+async def search_datasets(
     search: Annotated[
         None | str,
         Query(
@@ -156,30 +131,45 @@ async def request_new_identifier(
         int,
         Query(title="Size of returned result", description="Size of returned result."),
     ] = 50,
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
-):
-    # return DatasetSearchResult(
-    #     datasets=[Announcement.model_validate(example_announcement)]
-    # )
-    pass
+    gateway: SearchPort = Depends(Provide["gateways.elasticsearch_legacy_gateway"]),  # noqa: FAST002
+) -> APIResponse[IndexSearchResult]:
+    filters = _build_filters(search_options)
+    page_size = max(1, min(size, 200))
+    current_page = (skip // page_size) + 1 if page_size else 1
+    page = PageModel(current=current_page, size=page_size)
+
+    result = await gateway.search(
+        search_text=search,
+        filters=filters,
+        page=page,
+    )
+    return APIResponse(content=result)
+
+
+@router.get(
+    "/search/datasets/mapping",
+    summary="Get dataset search index mapping",
+    description="Returns the Elasticsearch index mapping for the legacy dataset index.",
+    response_model=APIResponse[dict[str, Any]],
+    responses={
+        200: {"description": "Index mapping."},
+    },
+    include_in_schema=True,
+)
+@inject
+async def get_dataset_search_mapping(
+    gateway: SearchPort = Depends(Provide["gateways.elasticsearch_legacy_gateway"]),  # noqa: FAST002
+) -> APIResponse[dict[str, Any]]:
+    mapping = await gateway.get_index_mapping()
+    return APIResponse(content=mapping)
 
 
 @router.post(
-    "/dataset-files/searches",
-    summary="Search datasets",
-    description="Search Datasets",
-    response_model=DatasetFileSearchResult,
-    responses={
-        201: {
-            "description": "New MHD identifier is created.",
-        },
-        401: {
-            "description": "Unauthorized request.",
-        },
-    },
+    "/search/dataset-files",
+    summary="Search dataset files",
+    description="Search Dataset files",
     include_in_schema=False,
 )
-@inject
 async def search_dataset_files(
     search: Annotated[
         None | str,
@@ -198,17 +188,6 @@ async def search_dataset_files(
                     summary="No Search Option",
                     value={},
                 ),
-                "Example Search Option ": Example(
-                    summary="Example Search Option",
-                    value=SearchOptions(
-                        filter_options=[
-                            FilterOption(filter_name="disease", value="cancer")
-                        ],
-                        sort_options=[
-                            SortOption(field_name="mhdIdentifier", descending=True)
-                        ],
-                    ).model_dump(by_alias=True),
-                ),
             },
         ),
     ] = None,
@@ -219,30 +198,16 @@ async def search_dataset_files(
         int,
         Query(title="Size of returned result", description="Size of returned result."),
     ] = 50,
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
-):
-    # files = Announcement.model_validate(example_announcement).raw_data_file_uri_list
-    # if len(files) > 10:
-    #     files = files[:10]
-    return DatasetFileSearchResult(files=None)
+) -> None:
+    pass
 
 
 @router.post(
-    "/dataset-metadata-files/searches",
+    "/search/dataset-metadata-files",
     summary="Search dataset metadata files",
     description="Search dataset metadata files",
-    response_model=DatasetFileSearchResult,
-    responses={
-        200: {
-            "description": "Search results.",
-        },
-        400: {
-            "description": "Bad request.",
-        },
-    },
     include_in_schema=False,
 )
-@inject
 async def search_dataset_metadata_files(
     search: Annotated[
         None | str,
@@ -261,17 +226,6 @@ async def search_dataset_metadata_files(
                     summary="No Search Option",
                     value={},
                 ),
-                "Example Search Option ": Example(
-                    summary="Example Search Option",
-                    value=SearchOptions(
-                        filter_options=[
-                            FilterOption(filter_name="disease", value="cancer")
-                        ],
-                        sort_options=[
-                            SortOption(field_name="mhdIdentifier", descending=True)
-                        ],
-                    ).model_dump(by_alias=True),
-                ),
             },
         ),
     ] = None,
@@ -282,12 +236,23 @@ async def search_dataset_metadata_files(
         int,
         Query(title="Size of returned result", description="Size of returned result."),
     ] = 50,
-    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
-):
-    # files = Announcement.model_validate(
-    #     example_announcement
-    # ).repository_metadata_file_uri_list
-    # if len(files) > 10:
-    #     files = files[:10]
-    # return DatasetFileSearchResult(files=files)
+) -> None:
     pass
+
+
+# -- helpers ------------------------------------------------------------------
+
+
+def _build_filters(search_options: SearchOptions | None) -> list[FilterModel] | None:
+    if not search_options or not search_options.filter_options:
+        return None
+    filters: list[FilterModel] = []
+    for opt in search_options.filter_options:
+        filters.append(
+            FilterModel(
+                field=opt.filter_name,
+                values=[str(opt.value)],
+                operator="any",
+            )
+        )
+    return filters or None

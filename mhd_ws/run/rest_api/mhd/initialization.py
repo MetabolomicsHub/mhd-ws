@@ -10,6 +10,7 @@ from mhd_ws.application.services.interfaces.async_task.async_task_service import
 )
 from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
+from mhd_ws.infrastructure.search.es_client import ElasticsearchClient
 from mhd_ws.run.rest_api.mhd.mhd_ping import ping_connection
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ async def init_application(  # noqa: PLR0913
     database_client: DatabaseClient = Provide["gateways.database_client"],
     cache_service: CacheService = Provide["services.cache_service"],
     async_task_service: AsyncTaskService = Provide["services.async_task_service"],
+    elasticsearch_client: ElasticsearchClient = Provide["gateways.elasticsearch_client"],
     # user_read_repository: UserReadRepository = Provide[
     #     "repositories.user_read_repository"
     # ],
@@ -27,6 +29,7 @@ async def init_application(  # noqa: PLR0913
     test_database_connection: bool = True,
     test_cache_service: bool = True,
     test_async_task_service: bool = True,
+    test_elasticsearch: bool = True,
     # test_database_table: bool = True,
     # test_policy_service: bool = False,
 ):
@@ -36,6 +39,8 @@ async def init_application(  # noqa: PLR0913
         await init_cache_service(cache_service)
     if test_async_task_service:
         await init_async_task_service(async_task_service)
+    if test_elasticsearch:
+        await init_elasticsearch_client(elasticsearch_client)
     # if test_database_table:
     #     await init_user_repository(user_read_repository)
     # if test_policy_service:
@@ -187,3 +192,17 @@ async def init_database_client(database_client: DatabaseClient):
     database_client_name = get_service_name(database_client)
     logger.info("Database client initialized: %s", database_client_name)
     logger.info("Database connection: %s", await database_client.get_connection_repr())
+
+
+async def init_elasticsearch_client(elasticsearch_client: ElasticsearchClient) -> bool:
+    if not elasticsearch_client:
+        logger.info("Elasticsearch client is not configured.")
+        return False
+    try:
+        await elasticsearch_client.start()
+        logger.info("Elasticsearch client initialised successfully.")
+    except Exception as ex:
+        logger.error("Elasticsearch client initialisation failed: %s", str(ex))
+        logger.critical("Search endpoints will fail.")
+        return False
+    return True

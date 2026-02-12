@@ -177,6 +177,7 @@ class CeleryAsyncTaskService(AsyncTaskService):
                 broker_url=broker.get_url(),
                 broker_transport_options=broker.get_transport_options(),
                 broker_connection_retry_on_startup=True,
+                broker_connection_max_retries=1,
                 result_backend=backend.get_url(),
                 result_backend_transport_options=backend.get_transport_options(),
                 timezone="Europe/London",

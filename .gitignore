@@ -2,6 +2,7 @@
 mhd-ws-config.yaml
 db_data/*
 cache*/
+.temp/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
