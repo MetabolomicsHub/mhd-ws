@@ -1096,7 +1096,7 @@ wheels = [
 [[package]]
 name = "mhd-model"
 version = "0.1.50"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/MetabolomicsHub/mhd-model.git?rev=dev#3a627d0b4f1e322d6fa880acc3ff2968a35a8726" }
 dependencies = [
     { name = "bioregistry" },
     { name = "charset-normalizer" },
@@ -1111,10 +1111,6 @@ dependencies = [
     { name = "pytz" },
     { name = "pyyaml" },
     { name = "reachable" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/76/c7/fddd9426c43c8deb8e17ca24bf1c8f32d8075d4d8a29965caf51acba412a/mhd_model-0.1.50.tar.gz", hash = "sha256:9bd5d68a82f958323fc32a618249cbdd8872dae0466ba211eccdc188c576268e", size = 106094, upload-time = "2026-02-08T20:29:05.245Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/18/b651e7c6bd020ed173971c7ade7cf36aea1345a19004e5a8bd4791e3c73a/mhd_model-0.1.50-py3-none-any.whl", hash = "sha256:cd9726ae2a7c4ced1d55e50448fa737a2c92cd9f5dedcb84327fb75eb316ef76", size = 137400, upload-time = "2026-02-08T20:29:06.317Z" },
 ]
 
 [[package]]
@@ -1191,7 +1187,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonpath-ng", specifier = ">=1.7.0" },
-    { name = "mhd-model", specifier = ">=0.1.50" },
+    { name = "mhd-model", git = "https://github.com/MetabolomicsHub/mhd-model.git?rev=dev" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
