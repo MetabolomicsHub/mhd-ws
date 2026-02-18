@@ -81,6 +81,12 @@
         }
       },
 
+      "samples": {
+        "properties": {
+          "count": { "type": "integer" }
+        }
+      },
+
       "files": {
         "properties": {
           "metadata": { "properties": { "count": { "type": "integer" } } },

@@ -46,6 +46,7 @@ class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
             "data_provider",
             "facets",
             "assays",
+            "samples",
             "files",
             "people",
             "organizations",
@@ -58,3 +59,9 @@ class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
             "factors",
         ]
     )
+
+
+@dataclass(frozen=True)
+class AdvancedSearchConfiguration(ElasticsearchConfiguration):
+    api_key_name: str = "legacy"
+    facet_size: int = 25

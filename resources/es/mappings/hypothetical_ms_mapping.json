@@ -55,6 +55,18 @@
         }
       },
 
+      "assays": {
+        "properties": {
+          "count": { "type": "integer" }
+        }
+      },
+
+      "samples": {
+        "properties": {
+          "count": { "type": "integer" }
+        }
+      },
+
       "counts": {
         "properties": {
           "assays": { "type": "integer" },

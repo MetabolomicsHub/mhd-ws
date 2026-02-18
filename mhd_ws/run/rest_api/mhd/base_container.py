@@ -3,6 +3,12 @@ from dependency_injector import containers, providers
 from mhd_ws.application.services.interfaces.async_task.conection import (
     PubSubConnection,
 )
+from mhd_ws.domain.domain_services.query_planner import QueryPlanner
+from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
+from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
+from mhd_ws.domain.entities.search.registries.index_capability_registry import (
+    INDEX_CAPABILITIES,
+)
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 
 # from mhd_ws.infrastructure.persistence.db.mongodb.config import (
@@ -15,7 +21,11 @@ from mhd_ws.infrastructure.pub_sub.connection.redis import RedisConnectionProvid
 from mhd_ws.infrastructure.pub_sub.connection.redis_sentinel import (
     RedisSentinelConnectionProvider,
 )
+from mhd_ws.infrastructure.search.es.advanced_search_gateway import (
+    AdvancedSearchGateway,
+)
 from mhd_ws.infrastructure.search.es.es_configuration import (
+    AdvancedSearchConfiguration,
     LegacyElasticSearchConfiguration,
 )
 from mhd_ws.infrastructure.search.es.legacy.es_legacy_search_gateway import (
@@ -62,6 +72,24 @@ class GatewaysContainer(containers.DeclarativeContainer):
         ElasticsearchLegacyGateway,
         client=elasticsearch_client,
         config=providers.Factory(LegacyElasticSearchConfiguration),
+    )
+
+    field_registry = providers.Object(FIELD_REGISTRY)
+    index_capabilities_registry = providers.Object(INDEX_CAPABILITIES)
+
+    search_spec_resolver = providers.Singleton(
+        SearchSpecResolver,
+        field_registry=field_registry,
+    )
+
+    query_planner = providers.Singleton(QueryPlanner)
+
+    advanced_search_gateway = providers.Singleton(
+        AdvancedSearchGateway,
+        client=elasticsearch_client,
+        config=providers.Factory(AdvancedSearchConfiguration),
+        planner=query_planner,
+        index_registry=index_capabilities_registry,
     )
 
 

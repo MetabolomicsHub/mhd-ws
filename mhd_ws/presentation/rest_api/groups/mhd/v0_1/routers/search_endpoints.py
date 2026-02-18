@@ -9,11 +9,17 @@ from fastapi import APIRouter, Body, Depends, Query
 from fastapi.openapi.models import Example
 from pydantic import Field
 
+from mhd_ws.application.services.interfaces.advanced_search_port import (
+    AdvancedSearchPort,
+)
 from mhd_ws.application.services.interfaces.search_port import SearchPort
+from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
+from mhd_ws.domain.entities.search.dtos import SearchRequestDTO
 from mhd_ws.domain.entities.search.index_search import (
     FilterModel,
     IndexSearchResult,
     PageModel,
+    SortModel,
 )
 from mhd_ws.domain.shared.model import MhdBaseModel
 from mhd_ws.presentation.rest_api.core.responses import APIResponse
@@ -143,6 +149,38 @@ async def search_datasets(
         filters=filters,
         page=page,
     )
+    return APIResponse(content=result)
+
+
+@router.post(
+    "/search/advanced/datasets",
+    summary="Advanced dataset search",
+    description="Search datasets using the advanced search pipeline with field-level clauses.",
+    response_model=APIResponse[IndexSearchResult],
+    responses={
+        200: {"description": "Search results."},
+        400: {"description": "Bad request."},
+    },
+    include_in_schema=True,
+)
+@inject
+async def advanced_search_datasets(
+    request: SearchRequestDTO = Body(...),
+    resolver: SearchSpecResolver = Depends(Provide["gateways.search_spec_resolver"]),  # noqa: FAST002
+    gateway: AdvancedSearchPort = Depends(Provide["gateways.advanced_search_gateway"]),  # noqa: FAST002
+) -> APIResponse[IndexSearchResult]:
+    spec = resolver.resolve(request)
+    page = (
+        PageModel(current=request.page.current, size=request.page.size)
+        if request.page
+        else None
+    )
+    sort = (
+        SortModel(field=request.sort[0].field, direction=request.sort[0].direction)
+        if request.sort
+        else None
+    )
+    result = await gateway.advanced_search(spec, page=page, sort=sort)
     return APIResponse(content=result)
 
 

@@ -47,6 +47,7 @@ ROLE_ALIASES = {
 INSTRUMENT_TYPE_ACCESSIONS = {"MSIO:0000171"}
 STUDY_ORG_REL_NAMES = {"funds", "funded-by"}
 MASS_ANALYZER_KEYWORDS = ("mass analyzer", "mass analyser")
+SAMPLE_NODE_TYPES = {"sample"}
 
 
 def role_labels(rel_name: str | None) -> list[str]:
@@ -183,6 +184,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "data_provider": {},
         "facets": {k: [] for k in FACET_KEYS},
         "assays": {"count": 0},
+        "samples": {"count": 0},
         "files": {"metadata": {"count": 0}, "raw": {"count": 0}, "extensions": []},
         "people": [],
         "organizations": [],
@@ -399,6 +401,9 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
     # Assay facets: assay refs point to descriptor nodes
     assay_nodes = [n for n in node_by_id.values() if n.get("type") == "assay"]
     doc["assays"]["count"] = len(assay_nodes)
+    doc["samples"]["count"] = sum(
+        1 for n in node_by_id.values() if n.get("type") in SAMPLE_NODE_TYPES
+    )
     for a in assay_nodes:
         for facet_key, ref_key in ASSAY_FACET_REF_KEYS:
             ref = a.get(ref_key)
