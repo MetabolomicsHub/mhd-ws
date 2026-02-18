@@ -3,6 +3,7 @@ mhd-ws-config.yaml
 db_data/*
 cache*/
 .temp/
+.DS_Store
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -198,3 +199,5 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+.claude/
