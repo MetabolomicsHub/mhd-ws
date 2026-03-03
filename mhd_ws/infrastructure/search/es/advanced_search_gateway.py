@@ -47,6 +47,13 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         self._index_registry = index_registry
         self._facet_size = facet_size
 
+    async def get_index_mapping(self) -> dict[str, Any]:
+        index_caps = self._index_registry.get_index_strict("ms-dataset-index")
+        return await self._client.get_mapping(
+            index=index_caps.concrete_index_or_alias,
+            api_key_name=index_caps.api_key_name,
+        )
+
     async def advanced_search(
         self,
         spec: SearchSpec,
@@ -98,7 +105,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
             raw = await self._client.search(
                 index=index_caps.concrete_index_or_alias,
                 body=body,
-                api_key_name=self._config.api_key_name,
+                api_key_name=index_caps.api_key_name,
             )
 
             composite_agg = raw.get("aggregations", {}).get("dataset_ids", {})
@@ -165,7 +172,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         raw = await self._client.search(
             index=index_caps.concrete_index_or_alias,
             body=body,
-            api_key_name=self._config.api_key_name,
+            api_key_name=index_caps.api_key_name,
         )
 
         results = [self._map_hit(hit) for hit in raw.get("hits", {}).get("hits", [])]

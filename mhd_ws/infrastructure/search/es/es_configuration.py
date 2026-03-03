@@ -16,8 +16,8 @@ class NestedSearchField:
 
 @dataclass(frozen=True)
 class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
-    index_name: str = "dataset_legacy_v1"
-    api_key_name: str = "legacy"
+    index_name: str = ""
+    api_key_name: str = "dataset_legacy"
     facet_size: int = 25
 
     search_fields: tuple[str, ...] = (
@@ -63,5 +63,5 @@ class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
 
 @dataclass(frozen=True)
 class AdvancedSearchConfiguration(ElasticsearchConfiguration):
-    api_key_name: str = "legacy"
+    api_key_name: str = "dataset_ms"
     facet_size: int = 25

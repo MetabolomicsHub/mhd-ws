@@ -89,6 +89,7 @@ class JoinContract(BaseModel):
 class IndexCapabilities(BaseModel):
     index_key: str
     concrete_index_or_alias: str
+    api_key_name: Optional[str] = None
     join: JoinContract
     fields: list[FieldCapability]
 

@@ -17,14 +17,15 @@
     "dynamic": "strict",
     "properties": {
       "id": { "type": "keyword" },
-      "dataset_id": { "type": "keyword", "normalizer": "lc" },
+      "dataset_id": { "type": "keyword" },
       "profile": { "type": "keyword" },
 
       "repository": {
         "properties": {
           "name": { "type": "keyword", "normalizer": "lc" },
           "identifier": { "type": "keyword", "normalizer": "lc" },
-          "revision": { "type": "integer" }
+          "revision": { "type": "integer" },
+          "revision_datetime": { "type": "date" }
         }
       },
 

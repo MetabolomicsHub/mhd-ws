@@ -7,7 +7,7 @@ from mhd_ws.domain.domain_services.query_planner import QueryPlanner
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
 from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
 from mhd_ws.domain.entities.search.registries.index_capability_registry import (
-    INDEX_CAPABILITIES,
+    build_index_capabilities,
 )
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 
@@ -71,11 +71,22 @@ class GatewaysContainer(containers.DeclarativeContainer):
     elasticsearch_legacy_gateway: ElasticsearchLegacyGateway = providers.Singleton(
         ElasticsearchLegacyGateway,
         client=elasticsearch_client,
-        config=providers.Factory(LegacyElasticSearchConfiguration),
+        config=providers.Factory(
+            LegacyElasticSearchConfiguration,
+            index_name=config.database.elasticsearch.connection.indices.dataset_legacy,
+        ),
     )
 
     field_registry = providers.Object(FIELD_REGISTRY)
-    index_capabilities_registry = providers.Object(INDEX_CAPABILITIES)
+    index_capabilities_registry = providers.Singleton(
+        build_index_capabilities,
+        dataset_index=config.database.elasticsearch.connection.indices.dataset_legacy,
+        metabolite_index=config.database.elasticsearch.connection.indices.metabolite,
+        dataset_api_key="dataset_legacy",
+        metabolite_api_key="metabolite",
+        dataset_ms_index=config.database.elasticsearch.connection.indices.dataset_ms,
+        dataset_ms_api_key="dataset_ms",
+    )
 
     search_spec_resolver = providers.Singleton(
         SearchSpecResolver,

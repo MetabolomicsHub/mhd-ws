@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+from typing import Any
 
 from mhd_ws.domain.entities.search.index_search import (
     IndexSearchResult,
@@ -18,3 +19,6 @@ class AdvancedSearchPort(abc.ABC):
         page: PageModel | None = None,
         sort: SortModel | None = None,
     ) -> IndexSearchResult: ...
+
+    @abc.abstractmethod
+    async def get_index_mapping(self) -> dict[str, Any]: ...

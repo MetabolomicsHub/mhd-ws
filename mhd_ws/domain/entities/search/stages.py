@@ -33,7 +33,7 @@ class DatasetIdConstraint(BaseModel):
 class DatasetSearchStage(BaseModel):
     id: Literal["stage_dataset_search"] = "stage_dataset_search"
     kind: Literal["DATASET_SEARCH"] = "DATASET_SEARCH"
-    index_key: Literal["dataset-index"] = "dataset-index"
+    index_key: Literal["ms-dataset-index"] = "ms-dataset-index"
     dataset_predicate: BoolExpr
     constraints: list[DatasetIdConstraint] = Field(default_factory=list)
     output: DatasetHitsOutput = Field(default_factory=DatasetHitsOutput)

@@ -50,6 +50,27 @@ MASS_ANALYZER_KEYWORDS = ("mass analyzer", "mass analyser")
 SAMPLE_NODE_TYPES = {"sample"}
 
 
+def detect_profile(mhd: dict[str, Any]) -> str:
+    """Detect the MHD profile from the document profile_uri."""
+    profile_uri = mhd.get("profile_uri") or ""
+    if "ms-profile" in profile_uri:
+        return "ms"
+    return "legacy"
+
+
+def _flatten_str_or_kv_list(items: list | None) -> list[str]:
+    """Flatten a list of strings or KeyValue dicts to a list of strings."""
+    result: list[str] = []
+    for item in items or []:
+        if isinstance(item, str) and item.strip():
+            result.append(item.strip())
+        elif isinstance(item, dict):
+            v = item.get("value") or item.get("key") or item.get("name")
+            if v and isinstance(v, str) and v.strip():
+                result.append(v.strip())
+    return result
+
+
 def role_labels(rel_name: str | None) -> list[str]:
     """Return relationship and any normalized role aliases."""
     if not rel_name:
@@ -161,10 +182,11 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
     repo_name = mhd.get("repository_name")
     repo_id = mhd.get("repository_identifier")
     repo_rev = mhd.get("repository_revision", 1)
+    profile = detect_profile(mhd)
 
     doc: dict[str, Any] = {
-        "id": f"legacy::{repo_id}",
-        "profile": "legacy",
+        "id": f"{profile}::{repo_id}",
+        "profile": profile,
         "repository": {
             "name": repo_name,
             "identifier": repo_id,
@@ -185,7 +207,21 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "facets": {k: [] for k in FACET_KEYS},
         "assays": {"count": 0},
         "samples": {"count": 0},
-        "files": {"metadata": {"count": 0}, "raw": {"count": 0}, "extensions": []},
+        "counts": {
+            "assays": 0,
+            "samples": 0,
+            "sample_runs": 0,
+            "subjects": 0,
+            "specimens": 0,
+        },
+        "files": {
+            "metadata": {"count": 0},
+            "raw": {"count": 0},
+            "derived": {"count": 0},
+            "result": {"count": 0},
+            "supplementary": {"count": 0},
+            "extensions": [],
+        },
         "people": [],
         "organizations": [],
         "parameters": [],
@@ -195,12 +231,35 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "project": {},
         "protocols": [],
         "publications": [],
+        "specimens": [],
         "search_text": "",
         "debug": {
             "node_type_counts": {},
             "relationship_counts": {},
         },
     }
+
+    # MS-specific top-level fields
+    revision_datetime = mhd.get("repository_revision_datetime")
+    if revision_datetime:
+        doc["repository"]["revision_datetime"] = revision_datetime
+
+    change_log = mhd.get("change_log")
+    if change_log:
+        doc["change_log"] = change_log
+
+    # MS-specific study fields
+    mhd_identifier = study.get("mhd_identifier") or mhd.get("mhd_identifier")
+    if mhd_identifier:
+        doc["study"]["mhd_identifier"] = mhd_identifier
+
+    grant_identifiers = _flatten_str_or_kv_list(study.get("grant_identifier_list"))
+    if grant_identifiers:
+        doc["study"]["grant_identifiers"] = grant_identifiers
+
+    related_datasets = _flatten_str_or_kv_list(study.get("related_dataset_list"))
+    if related_datasets:
+        doc["study"]["related_datasets"] = related_datasets
 
     # Debug counts
     doc["debug"]["node_type_counts"] = dict(
@@ -251,15 +310,15 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             continue
 
         person = node_by_id.get(pid, {})
-        entry = people_by_id.setdefault(
-            pid,
-            {
-                "full_name": person.get("full_name") or person.get("name"),
-                "emails": person.get("email_list") or person.get("emails") or [],
-                "organizations": [],
-                "roles": [],
-            },
-        )
+        person_entry: dict[str, Any] = {
+            "full_name": person.get("full_name") or person.get("name"),
+            "emails": person.get("email_list") or person.get("emails") or [],
+            "organizations": [],
+            "roles": [],
+        }
+        if person.get("orcid"):
+            person_entry["orcid"] = person["orcid"]
+        entry = people_by_id.setdefault(pid, person_entry)
         entry["roles"].extend(role_labels(rel_name))
 
     def add_org_entry(
@@ -275,6 +334,10 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             "role": role,
             "direction": direction,
         }
+        if org.get("department"):
+            entry["department"] = org["department"]
+        if org.get("unit"):
+            entry["unit"] = org["unit"]
         key = (
             (entry.get("id") or "").strip(),
             (entry.get("name") or "").strip(),
@@ -383,6 +446,8 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             continue
         seen_protocols.add(key)
         doc["protocols"].append(entry)
+        if protocol_type:
+            doc["facets"]["protocol_types"].append(protocol_type)
 
     # Publications: study --has-publication--> publication
     publication_ids = set(rel_targets(relidx, study_id, "has-publication"))
@@ -392,6 +457,8 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         if pub.get("type") != "publication":
             continue
         entry = {"title": pub.get("title"), "doi": pub.get("doi")}
+        if pub.get("pubmed_id"):
+            entry["pubmed_id"] = pub["pubmed_id"]
         key = ((entry.get("title") or "").strip(), (entry.get("doi") or "").strip())
         if key in seen_publications:
             continue
@@ -403,6 +470,17 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
     doc["assays"]["count"] = len(assay_nodes)
     doc["samples"]["count"] = sum(
         1 for n in node_by_id.values() if n.get("type") in SAMPLE_NODE_TYPES
+    )
+    doc["counts"]["assays"] = doc["assays"]["count"]
+    doc["counts"]["samples"] = doc["samples"]["count"]
+    doc["counts"]["sample_runs"] = sum(
+        1 for n in node_by_id.values() if n.get("type") == "sample-run"
+    )
+    doc["counts"]["subjects"] = sum(
+        1 for n in node_by_id.values() if n.get("type") == "subject"
+    )
+    doc["counts"]["specimens"] = sum(
+        1 for n in node_by_id.values() if n.get("type") == "specimen"
     )
     for a in assay_nodes:
         for facet_key, ref_key in ASSAY_FACET_REF_KEYS:
@@ -683,6 +761,11 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             seen_params.add(key)
             param_entries.append(entry)
 
+            if type_name:
+                doc["facets"]["parameter_types"].append(type_name)
+            if value_label:
+                doc["facets"]["parameter_values"].append(value_label)
+
             type_name_lc = (type_name or "").lower()
             is_instrument = "instrument" in type_name_lc or (
                 type_accession or ""
@@ -717,6 +800,26 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
     doc["files"]["raw"]["count"] = sum(
         1 for n in node_by_id.values() if n.get("type") == "raw-data-file"
     )
+    doc["files"]["derived"]["count"] = sum(
+        1 for n in node_by_id.values() if n.get("type") == "derived-data-file"
+    )
+    doc["files"]["result"]["count"] = sum(
+        1 for n in node_by_id.values() if n.get("type") == "result-file"
+    )
+    doc["files"]["supplementary"]["count"] = sum(
+        1 for n in node_by_id.values() if n.get("type") == "supplementary-file"
+    )
+
+    # Specimens (ms profile)
+    specimen_nodes = [n for n in node_by_id.values() if n.get("type") == "specimen"]
+    if specimen_nodes:
+        doc["specimens"] = [
+            {
+                "name": s.get("name"),
+                "repository_identifier": s.get("repository_identifier"),
+            }
+            for s in specimen_nodes
+        ]
     extension_counts: Counter[str] = Counter()
     for node in node_by_id.values():
         if node.get("type") not in FILE_NODE_TYPES:

@@ -21,6 +21,10 @@ FACET_KEYS: tuple[str, ...] = (
     "measurement_types",
     "assay_types",
     "technology_types",
+    # ms profile additions
+    "protocol_types",
+    "parameter_types",
+    "parameter_values",
 )
 
 SEARCH_FACET_KEYS: tuple[str, ...] = (

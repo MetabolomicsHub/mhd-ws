@@ -32,6 +32,10 @@ class ElasticsearchClientConfig(BaseModel):
     verify_certs: bool = Field(
         default=True, description="Verify SSL certificates for HTTPS connections"
     )
+    indices: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Logical index name → concrete ES index/alias",
+    )
 
 
 class ElasticsearchClient:
@@ -215,7 +219,8 @@ class ElasticsearchClient:
         self, index: str, api_key_name: Optional[str] = None
     ) -> Dict[str, Any]:
         client = await self._get_started_client(api_key_name)
-        return await client.indices.get_mapping(index=index)
+        response = await client.indices.get_mapping(index=index)
+        return response.body
 
     async def index_exists(
         self, index: str, api_key_name: Optional[str] = None

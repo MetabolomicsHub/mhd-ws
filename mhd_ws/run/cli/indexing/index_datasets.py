@@ -1,4 +1,4 @@
-"""CLI command for indexing legacy MHD datasets into Elasticsearch."""
+"""CLI command for indexing MHD datasets into Elasticsearch."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _default_index_name() -> str:
-    return os.getenv("MHD_INDEX_NAME") or "dataset_legacy_v1"
+    return os.getenv("MHD_INDEX_NAME") or "dataset_ms_v1"
 
 
 def _default_metabolite_index_name() -> str:
@@ -159,10 +159,11 @@ async def _handle_upload(
             )
         mapping = load_json_file(mapping_path)
         await es_client.ensure_index_exists(
-            index_name, mapping, recreate=recreate_index
+            index_name, mapping, recreate=recreate_index, api_key_name="dataset_ms",
         )
         n = await es_client.bulk_upload(
-            docs, index_name=index_name, op_type=op_type, batch_size=batch_size
+            docs, index_name=index_name, op_type=op_type, batch_size=batch_size,
+            api_key_name="dataset_ms",
         )
         eprint(f"Uploaded {n} dataset docs to index {index_name}")
 
@@ -174,13 +175,15 @@ async def _handle_upload(
                 )
             metab_mapping = load_json_file(metab_mapping_path)
             await es_client.ensure_index_exists(
-                metabolite_index, metab_mapping, recreate=recreate_index
+                metabolite_index, metab_mapping, recreate=recreate_index,
+                api_key_name="metabolite",
             )
             n_met = await es_client.bulk_upload(
                 metabolite_docs,
                 index_name=metabolite_index,
                 op_type=op_type,
                 batch_size=batch_size,
+                api_key_name="metabolite",
             )
             eprint(f"Uploaded {n_met} metabolite docs to index {metabolite_index}")
     finally:
@@ -260,7 +263,7 @@ def handle_output(
               help="ES index name for dataset documents")
 @click.option("--metabolite-index", default=_default_metabolite_index_name,
               help="ES index name for metabolite documents")
-@click.option("--mapping-file", default="resources/es/mappings/legacy_mapping.json",
+@click.option("--mapping-file", default="resources/es/mappings/ms_mapping.json",
               help="Index mapping JSON for dataset index")
 @click.option("--metabolite-mapping-file",
               default="resources/es/mappings/metabolite_mapping.json",
@@ -305,7 +308,7 @@ def index_datasets(  # noqa: PLR0913
     log_facet_keys: str,
     log_facet_values: bool,
 ) -> None:
-    """Index legacy MHD datasets (.mhd.json) into Elasticsearch documents."""
+    """Index MHD datasets (.mhd.json) into Elasticsearch documents."""
 
     input_path = Path(input_dir)
     files = iter_input_files(input_path, pattern)
