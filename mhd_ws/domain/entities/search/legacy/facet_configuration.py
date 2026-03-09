@@ -49,6 +49,7 @@ for _name in _VALUE_FACET_FIELDS:
     LEGACY_FACET_CONFIG[_name] = FacetConfig(field=f"facets.{_name}", type="value")
 
 LEGACY_FACET_CONFIG["profile"] = FacetConfig(field="profile", type="value")
+LEGACY_FACET_CONFIG["repository"] = FacetConfig(field="repository.name", type="value")
 
 LEGACY_FACET_CONFIG["submission_date"] = RangeFacetConfig(
     field="dates.submission", type="range", interval="year"

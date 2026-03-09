@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -33,6 +33,8 @@ class FieldDef(BaseModel):
     value_type: ValueType
     ops: AllowedOperators
     description: str = ""
+    facet_key: Optional[str] = None
+    facet_type: Optional[Literal["value", "range"]] = None
 
 
 class FieldRegistry(BaseModel):

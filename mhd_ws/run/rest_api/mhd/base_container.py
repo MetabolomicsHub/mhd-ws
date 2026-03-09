@@ -101,6 +101,7 @@ class GatewaysContainer(containers.DeclarativeContainer):
         config=providers.Factory(AdvancedSearchConfiguration),
         planner=query_planner,
         index_registry=index_capabilities_registry,
+        field_registry=field_registry,
     )
 
 

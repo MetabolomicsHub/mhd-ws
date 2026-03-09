@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from logging import getLogger
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Body, Depends, Query
@@ -51,6 +51,8 @@ class FieldDefPublic(MhdBaseModel):
     target: Target
     value_type: ValueType
     ops: AllowedOperators
+    facet_key: str | None = None
+    facet_type: Literal["value", "range"] | None = None
 
 
 class SearchFieldsResponse(MhdBaseModel):

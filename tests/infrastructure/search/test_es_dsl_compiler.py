@@ -9,6 +9,7 @@ from mhd_ws.domain.entities.search.predicate_tree import (
     RangePredicate,
     TermMatchPredicate,
 )
+from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
 from mhd_ws.domain.entities.search.registries.index_capability_registry import (
     INDEX_CAPABILITIES,
 )
@@ -22,9 +23,20 @@ def dataset_compiler() -> EsDslCompiler:
 
 
 @pytest.fixture
+def ms_dataset_compiler() -> EsDslCompiler:
+    caps = INDEX_CAPABILITIES.get_index_strict("ms-dataset-index")
+    return EsDslCompiler(caps)
+
+
+@pytest.fixture
 def metabolite_compiler() -> EsDslCompiler:
     caps = INDEX_CAPABILITIES.get_index_strict("metabolite-index")
     return EsDslCompiler(caps)
+
+
+@pytest.fixture
+def facet_fields() -> list:
+    return [f for f in FIELD_REGISTRY.fields if f.facet_key is not None]
 
 
 class TestLeafPredicates:
@@ -160,22 +172,28 @@ class TestBooleanComposition:
 
 
 class TestFacetAggregations:
-    def test_facet_aggs_keys(self, dataset_compiler: EsDslCompiler) -> None:
-        aggs = dataset_compiler.compile_facet_aggs()
-        # Should contain all legacy facet config keys
+    def test_facet_aggs_keys(
+        self, ms_dataset_compiler: EsDslCompiler, facet_fields: list
+    ) -> None:
+        aggs = ms_dataset_compiler.compile_facet_aggs(facet_fields)
         assert "organisms" in aggs
         assert "diseases" in aggs
         assert "submission_date" in aggs
         assert "public_release_date" in aggs
+        assert "repository" in aggs
 
-    def test_value_facet_structure(self, dataset_compiler: EsDslCompiler) -> None:
-        aggs = dataset_compiler.compile_facet_aggs(facet_size=10)
+    def test_value_facet_structure(
+        self, ms_dataset_compiler: EsDslCompiler, facet_fields: list
+    ) -> None:
+        aggs = ms_dataset_compiler.compile_facet_aggs(facet_fields, facet_size=10)
         assert aggs["organisms"] == {
             "terms": {"field": "facets.organisms", "size": 10}
         }
 
-    def test_range_facet_structure(self, dataset_compiler: EsDslCompiler) -> None:
-        aggs = dataset_compiler.compile_facet_aggs()
+    def test_range_facet_structure(
+        self, ms_dataset_compiler: EsDslCompiler, facet_fields: list
+    ) -> None:
+        aggs = ms_dataset_compiler.compile_facet_aggs(facet_fields)
         assert "date_range" in aggs["submission_date"]
         assert aggs["submission_date"]["date_range"]["field"] == "dates.submission"
         assert len(aggs["submission_date"]["date_range"]["ranges"]) > 0

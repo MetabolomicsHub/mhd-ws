@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from mhd_ws.domain.entities.search.legacy.facet_configuration import (
-    LEGACY_FACET_CONFIG,
-    RangeFacetConfig,
-)
+from datetime import datetime
+
 from mhd_ws.domain.entities.search.predicate_tree import (
     AndExpr,
     BoolExpr,
@@ -16,7 +14,7 @@ from mhd_ws.domain.entities.search.predicate_tree import (
     RangePredicate,
     TermMatchPredicate,
 )
-from mhd_ws.domain.entities.search.registries.models import IndexCapabilities
+from mhd_ws.domain.entities.search.registries.models import FieldDef, IndexCapabilities
 
 
 class EsDslCompiler:
@@ -43,21 +41,45 @@ class EsDslCompiler:
     ) -> list[dict[str, Any]]:
         return [{field: {"order": direction}}]
 
-    def compile_facet_aggs(self, facet_size: int = 25) -> dict[str, Any]:
+    def compile_facet_aggs(
+        self, facet_fields: list[FieldDef], facet_size: int = 25
+    ) -> dict[str, Any]:
         aggs: dict[str, Any] = {}
-        for name, cfg in LEGACY_FACET_CONFIG.items():
-            if isinstance(cfg, RangeFacetConfig):
-                aggs[name] = {
+        for field in facet_fields:
+            if not field.facet_key or not field.facet_type:
+                continue
+            cap = self._caps.get_field(field.field_key)
+            if cap is None:
+                continue
+            if field.facet_type == "range":
+                aggs[field.facet_key] = {
                     "date_range": {
-                        "field": cfg.field,
-                        "ranges": cfg.build_ranges(),
+                        "field": cap.es_path,
+                        "ranges": self._build_year_ranges(),
                     }
                 }
-            else:
-                aggs[name] = {
-                    "terms": {"field": cfg.field, "size": facet_size}
+            elif field.facet_type == "value":
+                aggs[field.facet_key] = {
+                    "terms": {"field": cap.es_path, "size": facet_size}
                 }
         return aggs
+
+    @staticmethod
+    def _build_year_ranges() -> list[dict]:
+        current_year = datetime.now().year
+        ranges: list[dict] = []
+        for year in range(current_year, current_year - 20, -1):
+            ranges.append(
+                {
+                    "from": f"{year}-01-01",
+                    "to": f"{year + 1}-01-01",
+                    "key": str(year),
+                }
+            )
+        ranges.append(
+            {"to": f"{current_year - 19}-01-01", "key": f"Before {current_year - 19}"}
+        )
+        return ranges
 
     def compile_metabolite_composite_agg(
         self, dataset_id_es_path: str, page_size: int

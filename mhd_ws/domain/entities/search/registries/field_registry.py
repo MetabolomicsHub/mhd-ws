@@ -75,6 +75,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted organisms",
+            facet_key="organisms",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_diseases",
@@ -88,6 +90,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted diseases",
+            facet_key="diseases",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_sample_types",
@@ -101,6 +105,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted sample types",
+            facet_key="sample_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_tissues",
@@ -114,6 +120,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted tissues",
+            facet_key="tissues",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_characteristic_types",
@@ -127,6 +135,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted characteristic types",
+            facet_key="characteristic_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_omics_types",
@@ -140,6 +150,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted omics types",
+            facet_key="omics_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_measurement_types",
@@ -153,6 +165,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted measurement types",
+            facet_key="measurement_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_assay_types",
@@ -166,6 +180,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted assay types",
+            facet_key="assay_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_technology_types",
@@ -179,6 +195,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted technology types",
+            facet_key="technology_types",
+            facet_type="value",
         ),
         # --- dataset numeric counts ---
         FieldDef(
@@ -236,6 +254,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["OR"],
             ),
             description="Dataset profile (e.g. legacy, ms)",
+            facet_key="profile",
+            facet_type="value",
         ),
         FieldDef(
             field_id="dataset_repository",
@@ -249,6 +269,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["OR"],
             ),
             description="Repository name (e.g. MetaboLights)",
+            facet_key="repository",
+            facet_type="value",
         ),
         FieldDef(
             field_id="dataset_license",
@@ -289,6 +311,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted protocol types",
+            facet_key="protocol_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_parameter_types",
@@ -302,6 +326,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted parameter types",
+            facet_key="parameter_types",
+            facet_type="value",
         ),
         FieldDef(
             field_id="facet_parameter_values",
@@ -315,6 +341,8 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_intra_combiners=["AND", "OR"],
             ),
             description="Faceted parameter values",
+            facet_key="parameter_values",
+            facet_type="value",
         ),
         # --- dataset numeric counts (ms additions) ---
         FieldDef(
@@ -344,6 +372,37 @@ FIELD_REGISTRY = FieldRegistry(
                 allowed_comparators=["GT", "GTE", "LT", "LTE", "EQ"],
             ),
             description="Number of subjects (ms profile)",
+        ),
+        # --- dataset date range facets (display-only, not filterable via clauses) ---
+        FieldDef(
+            field_id="submission_date",
+            field_key="dataset.dates.submission",
+            target=Target.DATASET,
+            value_type=ValueType.DATE,
+            ops=AllowedOperators(
+                allow_terms=False,
+                allow_comparators=False,
+                allowed_match_modes=[],
+                allowed_intra_combiners=[],
+            ),
+            description="Submission date (range facet only)",
+            facet_key="submission_date",
+            facet_type="range",
+        ),
+        FieldDef(
+            field_id="public_release_date",
+            field_key="dataset.dates.public_release",
+            target=Target.DATASET,
+            value_type=ValueType.DATE,
+            ops=AllowedOperators(
+                allow_terms=False,
+                allow_comparators=False,
+                allowed_match_modes=[],
+                allowed_intra_combiners=[],
+            ),
+            description="Public release date (range facet only)",
+            facet_key="public_release_date",
+            facet_type="range",
         ),
         # --- dataset nested publication/person search ---
         FieldDef(

@@ -16,7 +16,10 @@ from mhd_ws.domain.entities.search.index_search import (
 )
 from mhd_ws.domain.entities.search.index_search_spec import SearchSpec
 from mhd_ws.domain.entities.search.predicate_tree import AndExpr
-from mhd_ws.domain.entities.search.registries.models import IndexCapabilitiesRegistry
+from mhd_ws.domain.entities.search.registries.models import (
+    FieldRegistry,
+    IndexCapabilitiesRegistry,
+)
 from mhd_ws.domain.entities.search.stages import (
     DatasetSearchStage,
     MetaboliteIdStage,
@@ -39,6 +42,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         config: AdvancedSearchConfiguration,
         planner: QueryPlanner,
         index_registry: IndexCapabilitiesRegistry,
+        field_registry: FieldRegistry,
         facet_size: int = 25,
     ) -> None:
         self._client = client
@@ -46,6 +50,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         self._planner = planner
         self._index_registry = index_registry
         self._facet_size = facet_size
+        self._facet_fields = [f for f in field_registry.fields if f.facet_key is not None]
 
     async def get_index_mapping(self) -> dict[str, Any]:
         index_caps = self._index_registry.get_index_strict("ms-dataset-index")
@@ -161,7 +166,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         else:
             body["sort"] = [{"_score": {"order": "desc"}}]
 
-        body["aggs"] = compiler.compile_facet_aggs(self._facet_size)
+        body["aggs"] = compiler.compile_facet_aggs(self._facet_fields, self._facet_size)
 
         logger.debug(
             "Advanced search payload for index=%s: %s",
