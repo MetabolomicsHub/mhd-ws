@@ -53,6 +53,7 @@ from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.tasks import (
     add_submission_task,
     announcement_file_validation_task,
     common_dataset_file_validation_task,
+    derive_announcement_task,
 )
 
 logger = getLogger(__name__)
@@ -675,7 +676,7 @@ async def get_revision_file(
     ] = None,
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
-    # cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
+    cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
     if mhd_revision and mhd_revision < 1:
         response.status_code = http_status.HTTP_400_BAD_REQUEST
@@ -693,6 +694,28 @@ async def get_revision_file(
             repository=repository.name,
             errors=[error],
         )
+    # Cache key: revision-specific when mhd_revision is given, otherwise "latest"
+    revision_label = str(mhd_revision) if mhd_revision else "latest"
+    cache_key = f"announcement-file:{accession}:{revision_label}"
+
+    cached = await cache_service.get_value(cache_key)
+    if cached is not None:
+        content = cached if isinstance(cached, str) else json.dumps(cached)
+        download_filename = (
+            f'attachment; filename="{accession}_announcement.json"'
+        )
+        headers = {
+            "x-mtbls-file-type": "application/json",
+            "Content-Disposition": download_filename,
+        }
+        report_chunk_size_in_bytes = 1024 * 1024
+
+        def iter_cached(data: str):
+            for i in range(0, len(data), report_chunk_size_in_bytes):
+                yield data[i : (i + report_chunk_size_in_bytes)]
+
+        return StreamingResponse(content=iter_cached(content), headers=headers)
+
     async with db_client.session() as session:
         query = (
             select(AnnouncementFile.file, DatasetRevision.revision)
@@ -730,6 +753,12 @@ async def get_revision_file(
             )
         announcement_file, revision = result_tuple
         content = json.dumps(announcement_file, indent=2)
+        # Store in cache (1 hour TTL)
+        await cache_service.set_value(
+            cache_key,
+            announcement_file,
+            expiration_time_in_seconds=3600,
+        )
         download_filename = (
             f'attachment; filename="{accession}_announcement_rev_{revision:02}.json"'
         )
@@ -745,6 +774,112 @@ async def get_revision_file(
 
         response = StreamingResponse(content=iter_content(content), headers=headers)
         return response
+
+
+@router.post(
+    "/datasets/{accession}/announcement-file/derive",
+    summary="Derive Announcement File from mhd.json",
+    description=(
+        "Trigger derivation of the announcement file for a dataset from its mhd.json. "
+        "The mhd.json URL is constructed as: {mhd_file_base_url}/{accession}.mhd.json. "
+        "Returns a task ID immediately — poll /datasets/{accession}/tasks/{task_id} for status."
+    ),
+    tags=["Dataset Announcements"],
+    response_model=MhdAsyncTaskResponse,
+    responses={
+        200: {"description": "Task initiated."},
+        400: {"description": "Bad Request."},
+        401: {"description": "Unauthorized."},
+        404: {"description": "Dataset not found."},
+    },
+)
+@inject
+async def derive_announcement_file(
+    response: Response,
+    accession: Annotated[
+        str,
+        Path(
+            title="MHD Identifier",
+            description="MHD accession number (e.g. MHD000001).",
+        ),
+    ],
+    mhd_file_base_url: Annotated[
+        str | None,
+        Query(
+            title="mhd.json base URL",
+            description=(
+                "Base URL used to construct the mhd.json file URL: "
+                "{mhd_file_base_url}/{accession}.mhd.json. "
+                "Overrides the server-configured default when provided."
+            ),
+        ),
+    ] = None,
+    reason: Annotated[
+        str | None,
+        Query(
+            title="Derivation reason",
+            description="Stored in DatasetRevision.description.",
+        ),
+    ] = None,
+    db_client: DatabaseClient = Depends(Provide["gateways.database_client"]),  # noqa: FAST002
+    async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
+        Provide["services.async_task_service"]
+    ),
+    mhd_file_base_url_config: str | None = Depends(Provide["gateways.mhd_file_base_url"]),  # noqa: FAST002
+    repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
+):
+    if not repository:
+        response.status_code = http_status.HTTP_401_UNAUTHORIZED
+        return MhdAsyncTaskResponse(accession=accession, errors=["Unauthorized."])
+
+    effective_base_url = mhd_file_base_url or mhd_file_base_url_config
+    if not effective_base_url:
+        response.status_code = http_status.HTTP_400_BAD_REQUEST
+        return MhdAsyncTaskResponse(
+            accession=accession,
+            errors=["mhd_file_base_url is required (provide as query param or configure announcement.mhd_file_base_url)."],
+        )
+
+    # Verify dataset exists and belongs to this repository
+    async with db_client.session() as session:
+        stmt = (
+            select(Dataset)
+            .where(
+                Dataset.accession == accession,
+                Dataset.repository_id == repository.id,
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        db_dataset = result.scalar_one_or_none()
+
+    if db_dataset is None:
+        response.status_code = http_status.HTTP_404_NOT_FOUND
+        return MhdAsyncTaskResponse(
+            accession=accession,
+            errors=[f"Dataset {accession!r} not found."],
+        )
+
+    mhd_url = f"{effective_base_url.rstrip('/')}/{accession}.mhd.json"
+    task_id = str(uuid.uuid4())
+
+    executor = await async_task_service.get_async_task(
+        derive_announcement_task,
+        accession=accession,
+        mhd_file_url=mhd_url,
+        reason=reason or "Ad-hoc derivation via API",
+        task_id=task_id,
+        id_generator=IdGenerator(lambda: task_id),
+    )
+    await executor.start()
+
+    return MhdAsyncTaskResponse(
+        accession=accession,
+        task_id=task_id,
+        task_status=TaskStatus.INITIATED,
+        messages=["Derivation task initiated."],
+        created_at=datetime.datetime.now(datetime.UTC),
+    )
 
 
 @router.delete(

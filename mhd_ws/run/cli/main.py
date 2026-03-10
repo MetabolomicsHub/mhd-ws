@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import click
 
+from mhd_ws.run.cli.announcement.derive_announcement import derive_announcement
 from mhd_ws.run.cli.indexing.index_datasets import index_datasets
 
 
@@ -14,6 +15,7 @@ def mhd_tool() -> None:
 
 
 mhd_tool.add_command(index_datasets)
+mhd_tool.add_command(derive_announcement)
 
 
 if __name__ == "__main__":

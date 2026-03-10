@@ -8,14 +8,25 @@
             "name": "Run MHD FastAPI",
             "type": "debugpy",
             "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "program": "${workspaceFolder}/mhd_ws/run/rest_api/mhd/main.py",
-            "console": "integratedTerminal",
-            "cwd": "${cwd}",
+            "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
                 "PYDEVD_DISABLE_FILE_VALIDATION": "1",
-                "MHD_CONFIG_FILE": "mhd-ws-config.yaml",
-                "MHD_CONFIG_SECRETS_FILE": "./secrets/mhd-ws-secrets.yaml"
+                "MHD_CONFIG_FILE": "${workspaceFolder}/mhd-ws-config.yaml",
+                "MHD_CONFIG_SECRETS_FILE": "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Attach MHD 5678",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
             },
             "justMyCode": false
         },
@@ -48,6 +59,31 @@
             "justMyCode": false
         },
         {
+            "name": "MHD CLI: derive announcement",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "derive-announcement",
+                "MHD000001",
+                "--mhd-file",
+                "${workspaceFolder}/.temp/MHD000001.mhd.json",
+                "--mhd-file-base-url",
+                "https://ftp.ebi.ac.uk/pub/databases/metabolights/studies/public",
+                "--config-file",
+                "${workspaceFolder}/mhd-ws-config.yaml",
+                "--secrets-file",
+                "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
             "name": "MHD CLI: index datasets (upload + recreate)",
             "type": "debugpy",
             "request": "launch",
@@ -65,7 +101,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
-                "MHD_INDEX_NAME": "dataset_legacy_v1",
+                "MHD_INDEX_NAME": "dataset_ms_v1",
                 "MHD_METABOLITE_INDEX_NAME": "metabolite_legacy_v1"
             },
             "console": "integratedTerminal"

@@ -104,6 +104,11 @@ class GatewaysContainer(containers.DeclarativeContainer):
         field_registry=field_registry,
     )
 
+    mhd_file_base_url = providers.Callable(
+        lambda cfg: cfg,
+        config.announcement.mhd_file_base_url,
+    )
+
 
 class RepositoriesContainer(containers.DeclarativeContainer):
     config = providers.Configuration()
