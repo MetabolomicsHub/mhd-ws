@@ -34,12 +34,14 @@ class DatabaseClientImpl(DatabaseClient):
         self.db_url_repr = (
             f"{cn.url_scheme}://{cn.user}:***@{cn.host}:{cn.port}/{cn.database}"
         )
+        connect_args = {"server_settings": {"search_path": cn.schema}}
         if db_pool_size is not None and db_pool_size > 0:
             self.engine = create_async_engine(
                 self.db_url,
                 future=True,
                 pool_size=db_pool_size,
                 max_overflow=db_pool_size * 2,
+                connect_args=connect_args,
             )
         else:
             logger.warning(
@@ -50,6 +52,7 @@ class DatabaseClientImpl(DatabaseClient):
                 self.db_url,
                 future=True,
                 poolclass=NullPool,
+                connect_args=connect_args,
             )
         self._async_session_factory = async_sessionmaker(
             self.engine,

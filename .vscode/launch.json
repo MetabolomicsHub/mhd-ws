@@ -8,49 +8,162 @@
             "name": "Run MHD FastAPI",
             "type": "debugpy",
             "request": "launch",
+            "python": "${command:python.interpreterPath}",
             "program": "${workspaceFolder}/mhd_ws/run/rest_api/mhd/main.py",
-            "console": "integratedTerminal",
-            "cwd": "${cwd}",
+            "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
                 "PYDEVD_DISABLE_FILE_VALIDATION": "1",
-                "MHD_CONFIG_FILE": "mhd-ws-config.yaml",
-                "MHD_CONFIG_SECRETS_FILE": "./secrets/mhd-ws-secrets.yaml"
+                "MHD_CONFIG_FILE": "${workspaceFolder}/mhd-ws-config.yaml",
+                "MHD_CONFIG_SECRETS_FILE": "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Attach MHD 5678",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "127.0.0.1",
+                "port": 5678
             },
             "justMyCode": false
         },
         {
             "name": "Run MHD Celery Worker",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
+            "python": "${command:python.interpreterPath}",
             "program": "${workspaceFolder}/mhd_ws/run/worker/mhd/main.py",
             "console": "integratedTerminal",
-            "cwd": "${cwd}",
+            "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
                 "PYDEVD_DISABLE_FILE_VALIDATION": "1",
                 "MHD_CONFIG_FILE": "mhd-ws-config.yaml",
-                "MHD_CONFIG_SECRETS_FILE": "./secrets/mhd-ws-secrets.yaml"
+                "MHD_CONFIG_SECRETS_FILE": "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
             },
             "jinja": true,
             "justMyCode": false
         },
         {
             "name": "Python: Run Current file",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
+            "python": "${command:python.interpreterPath}",
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "env": {
-                "PYTHONPATH": "${cwd}"
+                "PYTHONPATH": "${workspaceFolder}"
             },
             "justMyCode": false
         },
         {
-            "name": "MHD CLI: index datasets (upload + recreate)",
+            "name": "MHD CLI: derive announcement",
+            "type": "python",
+            "request": "launch",
+            "python": "${command:python.interpreterPath}",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "derive-announcement",
+                "MHD000001",
+                "--mhd-file",
+                "${workspaceFolder}/.temp/MTBLS30008987.mhd.json",
+                "--mhd-file-base-url",
+                "https://ftp.ebi.ac.uk/pub/databases/metabolights/studies/public",
+                "--config-file",
+                "${workspaceFolder}/mhd-ws-config.yaml",
+                "--secrets-file",
+                "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "MHD CLI: derive announcements from dir",
             "type": "debugpy",
             "request": "launch",
+            "python": "${command:python.interpreterPath}",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "derive-announcement",
+                "--dir",
+                "${input:mhdDir}",
+                "--mhd-file-base-url",
+                "${input:mhdBaseUrl}",
+                "--config-file",
+                "${workspaceFolder}/mhd-ws-config.yaml",
+                "--secrets-file",
+                "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "MHD CLI: seed datasets from dir",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${command:python.interpreterPath}",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "seed-datasets",
+                "--dir",
+                "${input:mhdDir}",
+                "--repository-name",
+                "${input:mhdRepositoryName}",
+                "--config-file",
+                "${workspaceFolder}/mhd-ws-config.yaml",
+                "--secrets-file",
+                "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "MHD CLI: load announcement",
+            "type": "python",
+            "request": "launch",
+            "python": "${command:python.interpreterPath}",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "load-announcement",
+                "--dir",
+                "${workspaceFolder}/.temp/announcements",
+                "--config-file",
+                "${workspaceFolder}/mhd-ws-config.yaml",
+                "--secrets-file",
+                "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "MHD CLI: index datasets (upload + recreate)",
+            "type": "python",
+            "request": "launch",
+            "python": "${command:python.interpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "index",
@@ -65,10 +178,30 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
-                "MHD_INDEX_NAME": "dataset_legacy_v1",
+                "MHD_INDEX_NAME": "dataset_ms_v1",
                 "MHD_METABOLITE_INDEX_NAME": "metabolite_legacy_v1"
             },
             "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "mhdDir",
+            "type": "promptString",
+            "description": "Directory containing .mhd.json files",
+            "default": "${workspaceFolder}/.temp"
+        },
+        {
+            "id": "mhdBaseUrl",
+            "type": "promptString",
+            "description": "Base URL for .mhd.json files (used to build {base}/{accession}.mhd.json)",
+            "default": "https://ftp.ebi.ac.uk/pub/databases/metabolights/studies/public"
+        },
+        {
+            "id": "mhdRepositoryName",
+            "type": "promptString",
+            "description": "Repository name (matches repository.name or short_name). Leave blank to use value from JSON.",
+            "default": ""
         }
     ]
 }

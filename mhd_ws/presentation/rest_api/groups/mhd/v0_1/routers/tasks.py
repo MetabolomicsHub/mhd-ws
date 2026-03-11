@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import hashlib
 import json
+import uuid
 from io import StringIO
 from logging import getLogger
 from typing import Any, OrderedDict
@@ -23,9 +24,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mhd_ws.application.decorators.async_task import async_task
+from mhd_ws.application.services.interfaces.async_task.async_task_service import AsyncTaskService
 from mhd_ws.application.services.interfaces.cache_service import CacheService
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
+from mhd_ws.infrastructure.announcement.mhd_model_adapter import (
+    convert_mhd_to_announcement,
+)
 from mhd_ws.infrastructure.persistence.db.mhd import (
+    AccessionType,
     AnnouncementFile,
     Dataset,
     DatasetRevision,
@@ -502,5 +508,234 @@ def common_dataset_file_validation_task(
         file_json=file_json,
         filename=filename or "",
         task_id=task_id,
+    )
+    return asyncio.run(coroutine)
+
+
+@inject
+async def derive_announcement(
+    accession: str,
+    mhd_file_url: str = "",
+    mhd_file: dict[str, Any] | None = None,
+    announcement_file: dict[str, Any] | None = None,
+    reason: str = "Derived from mhd.json",
+    task_id: str | None = None,
+    database_client: DatabaseClient = Provide["gateways.database_client"],
+    cache_service: CacheService | None = Provide["services.cache_service"],
+) -> dict[str, Any]:
+    task_id = task_id or str(uuid.uuid4())
+
+    if announcement_file is not None:
+        # Pre-converted announcement provided — skip fetch and conversion entirely.
+        announcement_json = announcement_file
+    else:
+        # Step 1: Fetch mhd.json (skipped when mhd_file is provided directly)
+        if mhd_file is None:
+            try:
+                with httpx.Client() as client:
+                    response = client.get(mhd_file_url)
+                    response.raise_for_status()
+                    mhd_file = json.loads(response.text)
+            except Exception as e:
+                return {"success": False, "message": f"Failed to fetch mhd.json: {e}"}
+        mhd_file_json = mhd_file
+
+        # Step 2: Detect profile
+        async with database_client.session() as a_session:
+            session: AsyncSession = a_session
+            stmt = select(Dataset).where(Dataset.accession == accession).limit(1)
+            result = await session.execute(stmt)
+            db_dataset = result.scalar_one_or_none()
+            if db_dataset is None:
+                return {"success": False, "message": f"Dataset {accession!r} not found in database."}
+            profile = (
+                "legacy"
+                if db_dataset.accession_type in (AccessionType.LEGACY, AccessionType.TEST_LEGACY)
+                else "ms"
+            )
+
+        # Step 3: Convert mhd.json to announcement
+        try:
+            announcement_json = convert_mhd_to_announcement(mhd_file_json, mhd_file_url, profile=profile)
+        except Exception as e:
+            return {"success": False, "message": f"Conversion failed: {e}"}
+
+    # Step 4: Sha256 dedup + store
+    announcement_sha256 = hashlib.sha256(json.dumps(announcement_json).encode()).hexdigest()
+
+    async with database_client.session() as a_session:
+        try:
+            session: AsyncSession = a_session
+            stmt = (
+                select(Dataset)
+                .where(Dataset.accession == accession)
+                .limit(1)
+                .with_for_update()
+            )
+            result = await session.execute(stmt)
+            db_dataset = result.scalar_one_or_none()
+
+            if db_dataset is None:
+                await session.rollback()
+                return {"success": False, "message": f"Dataset {accession!r} not found in database."}
+
+            if db_dataset.revision > 0:
+                stmt = select(DatasetRevision).where(
+                    DatasetRevision.dataset_id == db_dataset.id,
+                    DatasetRevision.revision == db_dataset.revision,
+                )
+                result = await session.execute(stmt)
+                latest_revision = result.scalar_one_or_none()
+                if latest_revision:
+                    stmt = select(AnnouncementFile.hash_sha256).where(
+                        AnnouncementFile.id == latest_revision.file_id,
+                    )
+                    result = await session.execute(stmt)
+                    existing_sha256 = result.scalar()
+                    if existing_sha256 == announcement_sha256:
+                        return {"success": False, "message": f"Announcement for {accession} is unchanged."}
+
+            # Step 5: Determine URIs
+            profile_enabled_dataset = ProfileEnabledDataset.model_validate(announcement_json)
+            schema_uri = (
+                profile_enabled_dataset.schema_name
+                or SUPPORTED_SCHEMA_MAP.schemas[SUPPORTED_SCHEMA_MAP.default_schema_uri]
+            )
+            if profile_enabled_dataset.profile_uri:
+                profile_uri = profile_enabled_dataset.profile_uri
+            else:
+                profile_uri = schema_uri.default_profile_uri
+
+            # Step 6: Store
+            stmt = select(func.max(DatasetRevision.revision)).where(
+                DatasetRevision.dataset_id == db_dataset.id
+            )
+            result = await session.execute(stmt)
+            max_revision = result.scalar()
+            new_revision = db_dataset.revision + 1
+            if max_revision is not None:
+                if max_revision > db_dataset.revision:
+                    new_revision = max_revision + 1
+
+            now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+            announcement_file = AnnouncementFile(
+                dataset=db_dataset,
+                hash_sha256=announcement_sha256,
+                file=announcement_json,
+                schema_uri=schema_uri,
+                profile_uri=profile_uri,
+            )
+            dataset_revision = DatasetRevision(
+                dataset=db_dataset,
+                file=announcement_file,
+                task_id=task_id,
+                revision=new_revision,
+                revision_datetime=now,
+                description=reason,
+                status=DatasetRevisionStatus.VALID,
+            )
+            db_dataset.updated_at = now
+            db_dataset.revision = new_revision
+            db_dataset.revision_datetime = now
+            db_dataset.status = DatasetStatus.PUBLIC
+
+            session.add(announcement_file)
+            session.add(dataset_revision)
+            await session.commit()
+
+            logger.info(
+                "Dataset %s derived new announcement revision %s",
+                accession,
+                new_revision,
+            )
+        except Exception as e:
+            await session.rollback()
+            logger.exception(e)
+            return {"success": False, "message": str(e)}
+
+    # Step 7: Invalidate cache
+    if cache_service is not None:
+        await cache_service.delete_key(f"announcement-file:{accession}:latest")
+
+    # Step 8: Return success
+    return {"success": True, "message": f"Announcement derived as revision {new_revision}."}
+
+
+@async_task(app_name="mhd", queue="submission")
+def derive_announcement_task(
+    *,
+    accession: str,
+    mhd_file_url: str,
+    mhd_file: dict[str, Any] | None = None,
+    reason: str = "Derived from mhd.json",
+    task_id: str | None = None,
+    **kwargs,
+) -> str:
+    coroutine = derive_announcement(
+        accession=accession,
+        mhd_file_url=mhd_file_url,
+        mhd_file=mhd_file,
+        reason=reason,
+        task_id=task_id,
+    )
+    return asyncio.run(coroutine)
+
+
+@inject
+async def derive_all_announcements(
+    mhd_file_base_url: str,
+    reason: str = "Batch re-derivation",
+    database_client: DatabaseClient = Provide["gateways.database_client"],
+    async_task_service: AsyncTaskService = Provide["services.async_task_service"],
+) -> dict[str, Any]:
+    """Dispatch derive_announcement_task for every dataset in the DB.
+
+    The mhd.json URL for each dataset is constructed as:
+        {mhd_file_base_url}/{accession}.mhd.json
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    dispatched = 0
+    errors = []
+
+    async with database_client.session() as a_session:
+        session: AsyncSession = a_session
+        stmt = select(Dataset.accession)
+        result = await session.execute(stmt)
+        accessions = [row[0] for row in result.all()]
+
+    for accession in accessions:
+        mhd_file_url = f"{mhd_file_base_url.rstrip('/')}/{accession}.mhd.json"
+        try:
+            executor = await async_task_service.get_async_task(
+                derive_announcement_task,
+                accession=accession,
+                mhd_file_url=mhd_file_url,
+                reason=reason,
+            )
+            await executor.start()
+            dispatched += 1
+        except Exception as e:
+            logger.error("Failed to dispatch derivation for %s: %s", accession, e)
+            errors.append(f"{accession}: {e}")
+
+    return {
+        "success": True,
+        "dispatched": dispatched,
+        "errors": errors,
+    }
+
+
+@async_task(app_name="mhd", queue="submission")
+def derive_all_announcements_task(
+    *,
+    mhd_file_base_url: str,
+    reason: str = "Batch re-derivation",
+    **kwargs,
+) -> str:
+    coroutine = derive_all_announcements(
+        mhd_file_base_url=mhd_file_base_url,
+        reason=reason,
     )
     return asyncio.run(coroutine)
