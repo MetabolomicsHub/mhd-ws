@@ -498,8 +498,9 @@ def common_dataset_file_validation_task(
 @inject
 async def derive_announcement(
     accession: str,
-    mhd_file_url: str,
+    mhd_file_url: str = "",
     mhd_file: dict[str, Any] | None = None,
+    announcement_file: dict[str, Any] | None = None,
     reason: str = "Derived from mhd.json",
     task_id: str | None = None,
     database_client: DatabaseClient = Provide["gateways.database_client"],
@@ -507,36 +508,40 @@ async def derive_announcement(
 ) -> dict[str, Any]:
     task_id = task_id or str(uuid.uuid4())
 
-    # Step 1: Fetch mhd.json (skipped when mhd_file is provided directly)
-    if mhd_file is None:
+    if announcement_file is not None:
+        # Pre-converted announcement provided — skip fetch and conversion entirely.
+        announcement_json = announcement_file
+    else:
+        # Step 1: Fetch mhd.json (skipped when mhd_file is provided directly)
+        if mhd_file is None:
+            try:
+                with httpx.Client() as client:
+                    response = client.get(mhd_file_url)
+                    response.raise_for_status()
+                    mhd_file = json.loads(response.text)
+            except Exception as e:
+                return {"success": False, "message": f"Failed to fetch mhd.json: {e}"}
+        mhd_file_json = mhd_file
+
+        # Step 2: Detect profile
+        async with database_client.session() as a_session:
+            session: AsyncSession = a_session
+            stmt = select(Dataset).where(Dataset.accession == accession).limit(1)
+            result = await session.execute(stmt)
+            db_dataset = result.scalar_one_or_none()
+            if db_dataset is None:
+                return {"success": False, "message": f"Dataset {accession!r} not found in database."}
+            profile = (
+                "legacy"
+                if db_dataset.accession_type in (AccessionType.LEGACY, AccessionType.TEST_LEGACY)
+                else "ms"
+            )
+
+        # Step 3: Convert mhd.json to announcement
         try:
-            with httpx.Client() as client:
-                response = client.get(mhd_file_url)
-                response.raise_for_status()
-                mhd_file = json.loads(response.text)
+            announcement_json = convert_mhd_to_announcement(mhd_file_json, mhd_file_url, profile=profile)
         except Exception as e:
-            return {"success": False, "message": f"Failed to fetch mhd.json: {e}"}
-    mhd_file_json = mhd_file
-
-    # Step 2: Detect profile
-    async with database_client.session() as a_session:
-        session: AsyncSession = a_session
-        stmt = select(Dataset).where(Dataset.accession == accession).limit(1)
-        result = await session.execute(stmt)
-        db_dataset = result.scalar_one_or_none()
-        if db_dataset is None:
-            return {"success": False, "message": f"Dataset {accession!r} not found in database."}
-        profile = (
-            "legacy"
-            if db_dataset.accession_type in (AccessionType.LEGACY, AccessionType.TEST_LEGACY)
-            else "ms"
-        )
-
-    # Step 3: Convert mhd.json to announcement
-    try:
-        announcement_json = convert_mhd_to_announcement(mhd_file_json, mhd_file_url, profile=profile)
-    except Exception as e:
-        return {"success": False, "message": f"Conversion failed: {e}"}
+            return {"success": False, "message": f"Conversion failed: {e}"}
 
     # Step 4: Sha256 dedup + store
     announcement_sha256 = hashlib.sha256(json.dumps(announcement_json).encode()).hexdigest()

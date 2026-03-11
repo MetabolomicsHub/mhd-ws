@@ -17,14 +17,49 @@ from mhd_ws.run.config_renderer import render_config_secrets
 logger = logging.getLogger(__name__)
 
 
+async def _run_derive(
+    accession: str,
+    mhd_file_json: dict[str, Any],
+    mhd_file_url: str,
+    reason: str,
+    db_client: Any,
+) -> bool:
+    """Derive and store one announcement. Returns True on success."""
+    from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.tasks import (
+        derive_announcement as _derive,
+    )
+
+    result = await _derive(
+        accession=accession,
+        mhd_file_url=mhd_file_url,
+        mhd_file=mhd_file_json,
+        reason=reason,
+        database_client=db_client,
+        cache_service=None,
+    )
+    if result.get("success"):
+        eprint(f"  OK  {accession}: {result['message']}")
+        return True
+    else:
+        eprint(f"  ERR {accession}: {result['message']}")
+        return False
+
+
 @click.command(name="derive-announcement")
-@click.argument("accession")
+@click.argument("accession", required=False, default=None)
 @click.option(
     "--mhd-file",
     "mhd_file_path",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    required=True,
-    help="Path to the .mhd.json file to convert.",
+    default=None,
+    help="Path to a single .mhd.json file to convert.",
+)
+@click.option(
+    "--dir",
+    "mhd_dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=None,
+    help="Directory of .mhd.json files. Accession is derived from each filename.",
 )
 @click.option(
     "--mhd-url",
@@ -59,40 +94,40 @@ logger = logging.getLogger(__name__)
     help="YAML secrets file.",
 )
 def derive_announcement(
-    accession: str,
-    mhd_file_path: str,
+    accession: str | None,
+    mhd_file_path: str | None,
+    mhd_dir: str | None,
     mhd_file_url: str | None,
     mhd_file_base_url: str | None,
     reason: str,
     config_file: str,
     secrets_file: str | None,
 ) -> None:
-    """Derive an announcement file from a .mhd.json file and store it in Postgres.
+    """Derive announcement file(s) from .mhd.json and store in Postgres.
 
-    ACCESSION is the MHD accession number (e.g. MHD000001).
-
-    Examples:
+    Single file mode: provide ACCESSION and --mhd-file.
 
     \b
     mhd derive-announcement MHD000001 \\
         --mhd-file /data/MHD000001.mhd.json \\
-        --mhd-file-base-url https://cdn.example.com/datasets \\
+        --mhd-file-base-url https://cdn.example.com \\
+        --config-file config/local.yml
+
+    Directory mode: provide --dir. Accession is taken from each filename
+    (e.g. MHD000001.mhd.json → MHD000001).
+
+    \b
+    mhd derive-announcement \\
+        --dir /data/mhd-files/ \\
+        --mhd-file-base-url https://cdn.example.com \\
         --config-file config/local.yml
     """
-    # Resolve mhd.json URL (embedded in the announcement output — not fetched)
-    if not mhd_file_url:
-        if not mhd_file_base_url:
-            raise click.ClickException(
-                "Either --mhd-url or --mhd-file-base-url (or MHD_FILE_BASE_URL env var) is required."
-            )
-        mhd_file_url = f"{mhd_file_base_url.rstrip('/')}/{accession}.mhd.json"
-
-    # Load mhd.json from disk
-    p = Path(mhd_file_path)
-    try:
-        mhd_file_json: dict[str, Any] = json.loads(p.read_text(encoding="utf-8"))
-    except Exception as e:
-        raise click.ClickException(f"Failed to parse {p}: {e}") from e
+    if mhd_dir and (accession or mhd_file_path):
+        raise click.ClickException("--dir cannot be combined with ACCESSION or --mhd-file.")
+    if not mhd_dir and not mhd_file_path:
+        raise click.ClickException("Provide either --mhd-file (with ACCESSION) or --dir.")
+    if mhd_file_path and not accession:
+        raise click.ClickException("ACCESSION is required when using --mhd-file.")
 
     # Set up DI container
     container = AnnouncementCliContainer()
@@ -101,26 +136,48 @@ def derive_announcement(
         container.secrets.from_yaml(secrets_file)
     render_config_secrets(container.config(), container.secrets())
     container.init_resources()
-
     db_client = container.gateways.database_client()
 
-    from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.tasks import (
-        derive_announcement as _derive,
-    )
-
-    async def _run() -> None:
-        result = await _derive(
-            accession=accession,
-            mhd_file_url=mhd_file_url,
-            mhd_file=mhd_file_json,
-            reason=reason,
-            database_client=db_client,
-            cache_service=None,
+    def _resolve_url(acc: str, path: Path) -> str:
+        if mhd_file_url:
+            return mhd_file_url
+        if mhd_file_base_url:
+            return f"{mhd_file_base_url.rstrip('/')}/{acc}.mhd.json"
+        raise click.ClickException(
+            "Either --mhd-url or --mhd-file-base-url (or MHD_FILE_BASE_URL) is required."
         )
-        if result.get("success"):
-            eprint(f"SUCCESS: {result['message']}")
-        else:
-            eprint(f"ERROR: {result['message']}")
-            sys.exit(1)
 
-    asyncio.run(_run())
+    def _load_json(path: Path) -> dict[str, Any]:
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            raise click.ClickException(f"Failed to parse {path}: {e}") from e
+
+    if mhd_dir:
+        files = sorted(Path(mhd_dir).glob("*.mhd.json"))
+        if not files:
+            raise click.ClickException(f"No *.mhd.json files found in {mhd_dir}")
+        eprint(f"Processing {len(files)} file(s) from {mhd_dir} ...")
+        async def _run_dir() -> tuple[int, int]:
+            ok = err = 0
+            for f in files:
+                acc = f.name.removesuffix(".mhd.json")
+                url = _resolve_url(acc, f)
+                if await _run_derive(acc, _load_json(f), url, reason, db_client):
+                    ok += 1
+                else:
+                    err += 1
+            return ok, err
+
+        ok, err = asyncio.run(_run_dir())
+        eprint(f"Done. {ok} succeeded, {err} failed.")
+        if err:
+            sys.exit(1)
+    else:
+        p = Path(mhd_file_path)
+        url = _resolve_url(accession, p)
+        async def _run_one() -> bool:
+            return await _run_derive(accession, _load_json(p), url, reason, db_client)
+
+        if not asyncio.run(_run_one()):
+            sys.exit(1)

@@ -23,7 +23,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    print("Applying initial revision... ")
     unique_identifier_seq = sa.schema.Sequence("unique_identifier_seq")
+    print("unique_identifier_seq created successfully. " + str(unique_identifier_seq))
     op.execute(CreateSequence(unique_identifier_seq))
     create_identifier_table(unique_identifier_seq)
     create_repository_table(unique_identifier_seq)
@@ -32,9 +34,10 @@ def upgrade() -> None:
     create_announcement_file_table(unique_identifier_seq)
     create_dataset_revision_table(unique_identifier_seq)
 
-
+    
 def downgrade() -> None:
     """Downgrade schema."""
+    print("Reverting initial revision... ")
     e_identifier_seq = sa.schema.Sequence("unique_identifier_seq")
     op.drop_table("dataset_revision", if_exists=True)
     op.drop_table("announcement_file", if_exists=True)

@@ -2,6 +2,7 @@ import os
 from logging.config import fileConfig
 from pathlib import Path
 
+import sqlalchemy as sa
 import yaml
 from alembic import context
 from sqlalchemy import engine_from_config, pool
@@ -45,17 +46,19 @@ def get_db_url(config_file, secrets_file):
     host = db_config.get("host")
     port = db_config.get("port")
     db_name = db_config.get("database")
+    schema = db_config.get("schema", "public")
 
     # Force use of psycopg2 for Alembic (sync)
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}"
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}", schema
 
 
-db_url = get_db_url(MHD_CONFIG_FILE, MHD_CONFIG_SECRETS_FILE)
+db_url, db_schema = get_db_url(MHD_CONFIG_FILE, MHD_CONFIG_SECRETS_FILE)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 config.set_main_option("sqlalchemy.url", db_url)
+config.set_main_option("db_schema", db_schema)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -98,8 +101,15 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
+    schema = config.get_main_option("db_schema", "public")
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        #print("schema§: " + schema)
+        connection.execute(sa.text(f"SET search_path TO {schema}"))
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table_schema=schema,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

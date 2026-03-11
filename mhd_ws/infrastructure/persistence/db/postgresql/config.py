@@ -8,6 +8,7 @@ class DatabaseConnection(BaseModel):
     password: str = ""
     database: str = ""
     url_scheme: str = ""
+    schema: str = "public"
 
 
 class DatabaseConfiguration(BaseModel):

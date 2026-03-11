@@ -1,0 +1,6 @@
+# Local development only — not for production use.
+FROM redis:7
+
+EXPOSE 6379
+
+CMD ["redis-server", "--requirepass", "my_redis_password"]

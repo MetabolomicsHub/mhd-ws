@@ -521,8 +521,8 @@ async def get_task_status(
 
 @router.get(
     "/datasets/{accession}/announcements",
-    summary="Get List of Dataset Revisions",
-    description="Get list of dataset revisions.",
+    summary="List Dataset Revisions",
+    description="Return dataset revision metadata (revision numbers, comments, timestamps).",
     tags=["Dataset Announcements"],
     response_model=MhDatasetRevisions,
     responses={
@@ -634,12 +634,15 @@ async def get_revisions(
 
 @router.get(
     "/datasets/{accession}/announcement-file",
-    summary="Get List of Dataset Revisions",
-    description="Get list of dataset revisions.",
+    summary="Download Announcement File",
+    description=(
+        "Return the announcement JSON for the latest or selected revision. "
+        "Uses cache when available."
+    ),
     tags=["Dataset Announcements"],
     responses={
         200: {
-            "description": "Revision List",
+            "description": "Announcement file JSON",
         },
         400: {
             "description": "Bad Request.",
