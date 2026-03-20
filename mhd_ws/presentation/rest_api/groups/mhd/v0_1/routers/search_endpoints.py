@@ -187,10 +187,136 @@ async def search_datasets(
     return APIResponse(content=result)
 
 
+_ADVANCED_SEARCH_DESCRIPTION = """Search datasets using field-level clauses and optional free-text.
+
+**Example: Simple text search**
+```json
+{"query_text": "cancer metabolomics"}
+```
+
+**Example: Sample count filter with disease terms**
+
+Show studies with more than 20 samples and either of the specified diseases:
+```json
+{
+  "clauses": [
+    {"kind": "compare", "field_id": "samples_count", "op": "GT", "value": 20},
+    {
+      "kind": "terms", "field_id": "facet_diseases", "op": "OR",
+      "terms": ["Liver Depression and Qi Stagnation", "Infected with SARS-CoV-2"],
+      "match": "EXACT"
+    }
+  ],
+  "page": {"current": 1, "size": 20}
+}
+```
+
+**Example: Two-stage metabolite join**
+
+Find lipidomics datasets from human studies containing cholesterol or triglyceride:
+```json
+{
+  "query_text": "lipidomics",
+  "inter_field_combiner": "AND",
+  "clauses": [
+    {"kind": "terms", "field_id": "facet_organisms", "op": "OR", "terms": ["Homo sapiens"], "match": "EXACT"},
+    {"kind": "terms", "field_id": "metabolite_name", "op": "OR", "terms": ["cholesterol", "triglyceride"], "match": "AUTO"}
+  ],
+  "page": {"current": 1, "size": 20}
+}
+```
+
+**Example: Negated clause**
+
+Exclude datasets associated with diabetes:
+```json
+{
+  "clauses": [
+    {"kind": "terms", "field_id": "facet_diseases", "op": "OR", "terms": ["diabetes"], "match": "EXACT", "not": true}
+  ]
+}
+```
+"""
+
+_ADVANCED_SEARCH_EXAMPLES = {
+    "Simple text search": Example(
+        summary="Simple text search",
+        description="Free-text query across all dataset fields.",
+        value={"query_text": "cancer metabolomics"},
+    ),
+    "Sample count + disease filter": Example(
+        summary="Sample count filter with disease terms",
+        description=(
+            "Show studies with more than 20 samples and either of the specified diseases."
+        ),
+        value={
+            "clauses": [
+                {"kind": "compare", "field_id": "samples_count", "op": "GT", "value": 20},
+                {
+                    "kind": "terms",
+                    "field_id": "facet_diseases",
+                    "op": "OR",
+                    "terms": [
+                        "Liver Depression and Qi Stagnation",
+                        "Infected with SARS-CoV-2",
+                    ],
+                    "match": "EXACT",
+                },
+            ],
+            "page": {"current": 1, "size": 20},
+        },
+    ),
+    "Two-stage metabolite join": Example(
+        summary="Two-stage metabolite join",
+        description=(
+            "Find lipidomics datasets from human studies containing cholesterol or triglyceride. "
+            "Stage 1 queries the metabolite index; stage 2 filters the dataset index by the resulting IDs."
+        ),
+        value={
+            "query_text": "lipidomics",
+            "inter_field_combiner": "AND",
+            "clauses": [
+                {
+                    "kind": "terms",
+                    "field_id": "facet_organisms",
+                    "op": "OR",
+                    "terms": ["Homo sapiens"],
+                    "match": "EXACT",
+                },
+                {
+                    "kind": "terms",
+                    "field_id": "metabolite_name",
+                    "op": "OR",
+                    "terms": ["cholesterol", "triglyceride"],
+                    "match": "AUTO",
+                },
+            ],
+            "page": {"current": 1, "size": 20},
+        },
+    ),
+    "Negated clause": Example(
+        summary="Negated clause",
+        description="Exclude datasets associated with diabetes.",
+        value={
+            "clauses": [
+                {
+                    "kind": "terms",
+                    "field_id": "facet_diseases",
+                    "op": "OR",
+                    "terms": ["diabetes"],
+                    "match": "EXACT",
+                    "not": True,
+                }
+            ]
+        },
+    ),
+}
+
+
 @router.post(
     "/search/advanced/datasets",
     summary="Advanced dataset search",
-    description="Search datasets using the advanced search pipeline with field-level clauses.",
+    description=_ADVANCED_SEARCH_DESCRIPTION,
     response_model=APIResponse[IndexSearchResult],
     responses={
         200: {"description": "Search results."},
@@ -200,7 +326,7 @@ async def search_datasets(
 )
 @inject
 async def advanced_search_datasets(
-    request: SearchRequestDTO = Body(...),
+    request: SearchRequestDTO = Body(openapi_examples=_ADVANCED_SEARCH_EXAMPLES),
     resolver: SearchSpecResolver = Depends(Provide["gateways.search_spec_resolver"]),  # noqa: FAST002
     gateway: AdvancedSearchPort = Depends(Provide["gateways.advanced_search_gateway"]),  # noqa: FAST002
 ) -> APIResponse[IndexSearchResult]:
