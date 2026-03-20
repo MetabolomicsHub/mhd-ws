@@ -344,6 +344,21 @@ FIELD_REGISTRY = FieldRegistry(
             facet_key="parameter_values",
             facet_type="value",
         ),
+        FieldDef(
+            field_id="facet_instruments",
+            field_key="dataset.instruments.name",
+            target=Target.DATASET,
+            value_type=ValueType.KEYWORD,
+            ops=AllowedOperators(
+                allow_terms=True,
+                allow_comparators=False,
+                allowed_match_modes=["EXACT"],
+                allowed_intra_combiners=["OR", "AND"],
+            ),
+            description="Instrument names (nested)",
+            facet_key="instruments",
+            facet_type="value",
+        ),
         # --- dataset numeric counts (ms additions) ---
         FieldDef(
             field_id="sample_runs_count",
@@ -396,13 +411,14 @@ FIELD_REGISTRY = FieldRegistry(
             value_type=ValueType.DATE,
             ops=AllowedOperators(
                 allow_terms=False,
-                allow_comparators=False,
+                allow_comparators=True,
                 allowed_match_modes=[],
                 allowed_intra_combiners=[],
+                allowed_comparators=["GT", "GTE", "LT", "LTE", "EQ"],
             ),
-            description="Public release date (range facet only)",
+            description="Public release date",
             facet_key="public_release_date",
-            facet_type="range",
+            facet_type="date_histogram",
         ),
         # --- dataset nested publication/person search ---
         FieldDef(

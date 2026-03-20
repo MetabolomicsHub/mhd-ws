@@ -52,7 +52,7 @@ class FieldDefPublic(MhdBaseModel):
     value_type: ValueType
     ops: AllowedOperators
     facet_key: str | None = None
-    facet_type: Literal["value", "range"] | None = None
+    facet_type: Literal["value", "range", "date_histogram"] | None = None
 
 
 class SearchFieldsResponse(MhdBaseModel):

@@ -34,7 +34,7 @@ class FieldDef(BaseModel):
     ops: AllowedOperators
     description: str = ""
     facet_key: Optional[str] = None
-    facet_type: Optional[Literal["value", "range"]] = None
+    facet_type: Optional[Literal["value", "range", "date_histogram"]] = None
 
 
 class FieldRegistry(BaseModel):

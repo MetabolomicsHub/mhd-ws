@@ -213,7 +213,17 @@ class AdvancedSearchGateway(AdvancedSearchPort):
     def _map_aggs(aggs: dict[str, Any]) -> dict[str, FacetResponse]:
         facets: dict[str, FacetResponse] = {}
         for name, agg_data in aggs.items():
-            buckets_raw = agg_data.get("buckets", [])
+            # Nested agg: no top-level "buckets"; inner sub-agg is named "values"
+            if "buckets" not in agg_data and "values" in agg_data:
+                buckets_raw = agg_data["values"].get("buckets", [])
+                facet_type = "value"
+            else:
+                buckets_raw = agg_data.get("buckets", [])
+                facet_type = (
+                    "range"
+                    if any("from" in b or "to" in b for b in buckets_raw)
+                    else "value"
+                )
             buckets = [
                 FacetBucket(
                     value=b.get("key_as_string", str(b["key"])), count=b["doc_count"]
@@ -221,10 +231,5 @@ class AdvancedSearchGateway(AdvancedSearchPort):
                 for b in buckets_raw
                 if b.get("doc_count", 0) > 0
             ]
-            facet_type = (
-                "range"
-                if any("from" in b or "to" in b for b in buckets_raw)
-                else "value"
-            )
             facets[name] = FacetResponse(type=facet_type, data=buckets)
         return facets

@@ -51,7 +51,17 @@ class EsDslCompiler:
             cap = self._caps.get_field(field.field_key)
             if cap is None:
                 continue
-            if field.facet_type == "range":
+            if field.facet_type == "date_histogram":
+                aggs[field.facet_key] = {
+                    "date_histogram": {
+                        "field": cap.es_path,
+                        "calendar_interval": "year",
+                        "format": "yyyy",
+                        "order": {"_key": "desc"},
+                        "min_doc_count": 1,
+                    }
+                }
+            elif field.facet_type == "range":
                 aggs[field.facet_key] = {
                     "date_range": {
                         "field": cap.es_path,
@@ -59,9 +69,17 @@ class EsDslCompiler:
                     }
                 }
             elif field.facet_type == "value":
-                aggs[field.facet_key] = {
-                    "terms": {"field": cap.es_path, "size": facet_size}
-                }
+                if cap.nested:
+                    aggs[field.facet_key] = {
+                        "nested": {"path": cap.nested.path},
+                        "aggs": {
+                            "values": {"terms": {"field": cap.es_path, "size": facet_size}}
+                        },
+                    }
+                else:
+                    aggs[field.facet_key] = {
+                        "terms": {"field": cap.es_path, "size": facet_size}
+                    }
         return aggs
 
     @staticmethod
