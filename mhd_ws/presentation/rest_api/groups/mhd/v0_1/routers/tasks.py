@@ -20,7 +20,7 @@ from mhd_model.model.v0_1.announcement.validation.validator import (
 )
 from mhd_model.model.v0_1.dataset.validation.validator import MhdFileValidator
 from mhd_model.shared.model import ProfileEnabledDataset
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mhd_ws.application.decorators.async_task import async_task
@@ -543,7 +543,16 @@ async def derive_announcement(
         # Step 2: Detect profile
         async with database_client.session() as a_session:
             session: AsyncSession = a_session
-            stmt = select(Dataset).where(Dataset.accession == accession).limit(1)
+            stmt = (
+                select(Dataset)
+                .where(
+                    or_(
+                        Dataset.accession == accession,
+                        Dataset.dataset_repository_identifier == accession,
+                    )
+                )
+                .limit(1)
+            )
             result = await session.execute(stmt)
             db_dataset = result.scalar_one_or_none()
             if db_dataset is None:
@@ -568,7 +577,12 @@ async def derive_announcement(
             session: AsyncSession = a_session
             stmt = (
                 select(Dataset)
-                .where(Dataset.accession == accession)
+                .where(
+                    or_(
+                        Dataset.accession == accession,
+                        Dataset.dataset_repository_identifier == accession,
+                    )
+                )
                 .limit(1)
                 .with_for_update()
             )

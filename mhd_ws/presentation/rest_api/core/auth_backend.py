@@ -21,6 +21,7 @@ from mhd_ws.presentation.rest_api.core.auth_utils import (
 )
 from mhd_ws.presentation.rest_api.core.authorization_middleware import (
     AuthorizedEndpoint,
+    is_public_announcement_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,10 @@ class AuthBackend(AuthenticationBackend):
         resource_id = self.fetch_resource_id(conn.url.path)
         route_path = "/" + str(conn.url).removeprefix(str(conn.base_url))
         route_path, _, _ = route_path.partition("?")
+        if is_public_announcement_file(route_path):
+            return AuthCredentials(["unauthenticated"]), UnauthenticatedUser(
+                resource_id
+            )
         signed_jwt_authorization_required = False
         for endpoint in self.signed_jwt_authorizations:
             if route_path.startswith(endpoint.prefix):

@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 import traceback
 from typing import Any, Union
@@ -19,6 +20,14 @@ from mhd_ws.domain.exceptions.auth import AuthenticationError, AuthorizationErro
 from mhd_ws.presentation.rest_api.core.responses import APIErrorResponse
 
 logger = logging.getLogger(__name__)
+
+PUBLIC_ANNOUNCEMENT_FILE_REGEX = re.compile(
+    r"^/v0_1/datasets/[^/]+/announcement-file$"
+)
+
+
+def is_public_announcement_file(route_path: str) -> bool:
+    return PUBLIC_ANNOUNCEMENT_FILE_REGEX.match(route_path) is not None
 
 
 class AuthorizedEndpoint(BaseModel):
@@ -51,6 +60,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         route_path = "/" + str(request.url).removeprefix(str(request.base_url))
         route_path, _, _ = route_path.partition("?")
+        public_announcement_file = is_public_announcement_file(route_path)
         user: Union[AuthenticatedUser, UnauthenticatedUser] = request.user
         client_host = request.client.host if request.client else ""
         method = request.method
@@ -86,7 +96,7 @@ class AuthorizationMiddleware(BaseHTTPMiddleware):
                     access_request_message += (
                         f" Target resource id: {user.requested_resource}"
                     )
-                if user.requested_resource:
+                if user.requested_resource and not public_announcement_file:
                     raise AuthorizationError(access_request_message)
                 # if resource_id:
                 #     permission_context: StudyPermissionContext = (

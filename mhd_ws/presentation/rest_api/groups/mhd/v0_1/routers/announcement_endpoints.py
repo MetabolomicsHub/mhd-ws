@@ -36,6 +36,7 @@ from mhd_ws.infrastructure.persistence.db.mhd import (
     AnnouncementFile,
     Dataset,
     DatasetRevision,
+    DatasetStatus,
 )
 from mhd_ws.presentation.rest_api.groups.mhd.v0_1.routers.db_utils import (
     create_new_identifier,
@@ -677,7 +678,6 @@ async def get_revision_file(
             "If not provided, the latest revision is returned.",
         ),
     ] = None,
-    repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
     db_client: None | DatabaseClient = Depends(Provide["gateways.database_client"]),
     cache_service: CacheService = Depends(Provide["services.cache_service"]),  # noqa: FAST002
 ):
@@ -686,22 +686,18 @@ async def get_revision_file(
         error = "Revision must be greater than 0."
         return MhDatasetRevisions(
             accession=accession,
-            repository=repository.name,
-            errors=[error],
-        )
-    if not repository:
-        response.status_code = http_status.HTTP_400_BAD_REQUEST
-        error = "Repository is not found."
-        return MhDatasetRevisions(
-            accession=accession,
-            repository=repository.name,
+            repository="",
             errors=[error],
         )
     # Cache key: revision-specific when mhd_revision is given, otherwise "latest"
     revision_label = str(mhd_revision) if mhd_revision else "latest"
     cache_key = f"announcement-file:{accession}:{revision_label}"
 
-    cached = await cache_service.get_value(cache_key)
+    cached = None
+    try:
+        cached = await cache_service.get_value(cache_key)
+    except Exception as ex:
+        logger.warning("Cache read failed for %s: %s", cache_key, ex)
     if cached is not None:
         content = cached if isinstance(cached, str) else json.dumps(cached)
         download_filename = (
@@ -720,25 +716,43 @@ async def get_revision_file(
         return StreamingResponse(content=iter_cached(content), headers=headers)
 
     async with db_client.session() as session:
+        dataset_query = select(Dataset).where(
+            or_(
+                Dataset.accession == accession,
+                Dataset.dataset_repository_identifier == accession,
+            )
+        )
+        result = await session.execute(dataset_query)
+        db_dataset = result.scalar_one_or_none()
+        if db_dataset is None:
+            response.status_code = http_status.HTTP_404_NOT_FOUND
+            error = f"Dataset {accession!r} not found."
+            return MhDatasetRevisions(
+                accession=accession,
+                repository="",
+                errors=[error],
+            )
+        if db_dataset.status != DatasetStatus.PUBLIC:
+            response.status_code = http_status.HTTP_403_FORBIDDEN
+            error = f"Dataset {accession!r} is not public yet."
+            return MhDatasetRevisions(
+                accession=accession,
+                repository="",
+                errors=[error],
+            )
+
         query = (
             select(AnnouncementFile.file, DatasetRevision.revision)
             .join(
                 DatasetRevision,
                 DatasetRevision.file_id == AnnouncementFile.id,
             )
-            .join(
-                Dataset,
-                DatasetRevision.dataset_id == Dataset.id,
-            )
-            .where(
-                Dataset.accession == accession,
-                Dataset.repository_id == repository.id,
-            )
+            .where(DatasetRevision.dataset_id == db_dataset.id)
         )
         if mhd_revision:
             query = query.where(DatasetRevision.revision == mhd_revision)
         else:
-            query = query.where(DatasetRevision.revision == Dataset.revision)
+            query = query.where(DatasetRevision.revision == db_dataset.revision)
 
         result = await session.execute(query)
         result_tuple: None | tuple[dict[str, Any], int] = result.one_or_none()
@@ -751,17 +765,20 @@ async def get_revision_file(
             )
             return MhDatasetRevisions(
                 accession=accession,
-                repository=repository.name,
+                repository="",
                 errors=[error],
             )
         announcement_file, revision = result_tuple
         content = json.dumps(announcement_file, indent=2)
         # Store in cache (1 hour TTL)
-        await cache_service.set_value(
-            cache_key,
-            announcement_file,
-            expiration_time_in_seconds=3600,
-        )
+        try:
+            await cache_service.set_value(
+                cache_key,
+                announcement_file,
+                expiration_time_in_seconds=3600,
+            )
+        except Exception as ex:
+            logger.warning("Cache write failed for %s: %s", cache_key, ex)
         download_filename = (
             f'attachment; filename="{accession}_announcement_rev_{revision:02}.json"'
         )
@@ -785,7 +802,7 @@ async def get_revision_file(
     description=(
         "Trigger derivation of the announcement file for a dataset from its mhd.json. "
         "The mhd.json URL is constructed as: {mhd_file_base_url}/{accession}.mhd.json. "
-        "Returns a task ID immediately — poll /datasets/{accession}/tasks/{task_id} for status."
+        "Returns a task ID immediately - poll /datasets/{accession}/tasks/{task_id} for status."
     ),
     tags=["Dataset Announcements"],
     response_model=MhdAsyncTaskResponse,
