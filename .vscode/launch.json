@@ -182,6 +182,33 @@
                 "MHD_METABOLITE_INDEX_NAME": "metabolite_legacy_v1"
             },
             "console": "integratedTerminal"
+        },
+        {
+            "name": "MHD CLI: load Neo4j",
+            "type": "python",
+            "request": "launch",
+            "python": "${command:python.interpreterPath}",
+            "module": "mhd_ws.run.cli.main",
+            "args": [
+                "load-neo4j",
+                "${workspaceFolder}/.temp",
+                "--uri",
+                "bolt://localhost:7687",
+                "--user",
+                "neo4j",
+                "--database",
+                "neo4j",
+                "--batch-size",
+                "1000",
+                "--include-embedded"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "NEO4J_PASSWORD": "yourStrongPassword123"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ],
     "inputs": [
