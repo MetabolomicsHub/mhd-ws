@@ -14,7 +14,10 @@ from mhd_ws.domain.entities.search.index_search import (
     PageModel,
     SortModel,
 )
-from mhd_ws.domain.entities.search.index_search_spec import SearchSpec
+from mhd_ws.domain.entities.search.index_search_spec import (
+    ParameterPairClauseSpec,
+    SearchSpec,
+)
 from mhd_ws.domain.entities.search.predicate_tree import AndExpr
 from mhd_ws.domain.entities.search.registries.models import (
     FieldRegistry,
@@ -74,7 +77,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
                 dataset_ids = await self._execute_metabolite_stage(stage)
             elif isinstance(stage, DatasetSearchStage):
                 return await self._execute_dataset_stage(
-                    stage, plan, page, sort, dataset_ids
+                    stage, plan, page, sort, dataset_ids, spec
                 )
 
         return IndexSearchResult(request_id=str(uuid.uuid4()))
@@ -140,6 +143,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         page: PageModel,
         sort: SortModel | None,
         dataset_ids: set[str] | None,
+        spec: SearchSpec,
     ) -> IndexSearchResult:
         index_caps = self._index_registry.get_index_strict(stage.index_key)
         compiler = EsDslCompiler(index_caps)
@@ -167,6 +171,15 @@ class AdvancedSearchGateway(AdvancedSearchPort):
             body["sort"] = [{"_score": {"order": "desc"}}]
 
         body["aggs"] = compiler.compile_facet_aggs(self._facet_fields, self._facet_size)
+        parameter_facet_types = [
+            c.type_name
+            for c in spec.clauses
+            if isinstance(c, ParameterPairClauseSpec) and c.include_facet
+        ]
+        if parameter_facet_types:
+            body["aggs"].update(
+                compiler.compile_parameter_group_aggs(parameter_facet_types, self._facet_size)
+            )
 
         logger.debug(
             "Advanced search payload for index=%s: %s",
@@ -213,7 +226,21 @@ class AdvancedSearchGateway(AdvancedSearchPort):
     def _map_aggs(aggs: dict[str, Any]) -> dict[str, FacetResponse]:
         facets: dict[str, FacetResponse] = {}
         for name, agg_data in aggs.items():
-            # Nested agg: no top-level "buckets"; inner sub-agg is named "values"
+            # Parameter group drill-down: nested → by_type → values → buckets
+            if name.startswith("param__") and "by_type" in agg_data:
+                type_name = name[len("param__"):]
+                buckets_raw = (
+                    agg_data.get("by_type", {}).get("values", {}).get("buckets", [])
+                )
+                buckets = [
+                    FacetBucket(value=str(b["key"]), count=b["doc_count"])
+                    for b in buckets_raw
+                    if b.get("doc_count", 0) > 0
+                ]
+                facets[type_name] = FacetResponse(type="value", data=buckets)
+                continue
+
+            # Nested terms agg (e.g. instruments): no top-level "buckets"; inner "values"
             if "buckets" not in agg_data and "values" in agg_data:
                 buckets_raw = agg_data["values"].get("buckets", [])
                 facet_type = "value"

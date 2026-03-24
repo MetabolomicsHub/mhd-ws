@@ -47,8 +47,18 @@ class ComparatorClauseSpec(BaseModel):
     value: Union[str, int, float, date, datetime]
 
 
+class ParameterPairClauseSpec(BaseModel):
+    kind: Literal["parameter_pair"] = "parameter_pair"
+    type_name: str
+    values: list[str]
+    combine_values: IntraFieldCombiner = "OR"
+    negated: bool = False
+    include_facet: bool = False
+    target: Target = Target.DATASET
+
+
 FieldClauseSpec = Annotated[
-    Union[TermClauseSpec, ComparatorClauseSpec],
+    Union[TermClauseSpec, ComparatorClauseSpec, ParameterPairClauseSpec],
     Field(discriminator="kind"),
 ]
 

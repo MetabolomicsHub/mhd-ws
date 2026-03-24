@@ -10,6 +10,7 @@ from mhd_ws.domain.entities.search.predicate_tree import (
     ExactMatchPredicate,
     NotExpr,
     OrExpr,
+    ParameterPairPredicate,
     PhraseMatchPredicate,
     RangePredicate,
     TermMatchPredicate,
@@ -132,6 +133,8 @@ class EsDslCompiler:
             return self._compile_exact_match(expr)
         if isinstance(expr, RangePredicate):
             return self._compile_range(expr)
+        if isinstance(expr, ParameterPairPredicate):
+            return self._compile_parameter_pair(expr)
         raise TypeError(f"Unknown expression type: {type(expr)}")
 
     def _compile_and(self, expr: AndExpr) -> dict[str, Any]:
@@ -195,6 +198,52 @@ class EsDslCompiler:
             range_clause = {op.lower(): pred.value}
         query: dict[str, Any] = {"range": {es_path: range_clause}}
         return self._maybe_nested(pred.field_key, query)
+
+    def _compile_parameter_pair(self, pred: ParameterPairPredicate) -> dict[str, Any]:
+        type_cap = self._caps.get_field("dataset.parameter_groups.type_name")
+        values_cap = self._caps.get_field("dataset.parameter_groups.values")
+        type_path = type_cap.es_path if type_cap else "parameter_groups.type_name"
+        values_path = values_cap.es_path if values_cap else "parameter_groups.values"
+
+        type_filter: dict[str, Any] = {"term": {type_path: pred.type_name}}
+
+        if not pred.values:
+            inner: dict[str, Any] = {"bool": {"filter": [type_filter]}}
+        elif len(pred.values) == 1:
+            inner = {"bool": {"filter": [type_filter, {"term": {values_path: pred.values[0]}}]}}
+        elif pred.combine_values == "AND":
+            inner = {"bool": {"filter": [type_filter] + [{"term": {values_path: v}} for v in pred.values]}}
+        else:
+            inner = {"bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}}
+
+        return {"nested": {"path": "parameter_groups", "query": inner}}
+
+    def compile_parameter_group_aggs(
+        self, type_names: list[str], facet_size: int = 25
+    ) -> dict[str, Any]:
+        """Per-type drill-down aggs: nested → filter(type_name) → terms(values)."""
+        type_cap = self._caps.get_field("dataset.parameter_groups.type_name")
+        values_cap = self._caps.get_field("dataset.parameter_groups.values")
+        type_path = type_cap.es_path if type_cap else "parameter_groups.type_name"
+        values_path = values_cap.es_path if values_cap else "parameter_groups.values"
+
+        aggs: dict[str, Any] = {}
+        for type_name in type_names:
+            key = f"param__{type_name}"
+            aggs[key] = {
+                "nested": {"path": "parameter_groups"},
+                "aggs": {
+                    "by_type": {
+                        "filter": {"term": {type_path: type_name}},
+                        "aggs": {
+                            "values": {
+                                "terms": {"field": values_path, "size": facet_size}
+                            }
+                        },
+                    }
+                },
+            }
+        return aggs
 
     # ------------------------------------------------------------------
     # Helpers

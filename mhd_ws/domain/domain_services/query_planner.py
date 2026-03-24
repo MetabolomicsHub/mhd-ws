@@ -3,6 +3,7 @@ from __future__ import annotations
 from mhd_ws.domain.entities.search.index_search_spec import (
     ComparatorClauseSpec,
     FieldClauseSpec,
+    ParameterPairClauseSpec,
     SearchSpec,
     Target,
     TermClauseSpec,
@@ -14,6 +15,7 @@ from mhd_ws.domain.entities.search.predicate_tree import (
     ExactMatchPredicate,
     NotExpr,
     OrExpr,
+    ParameterPairPredicate,
     PhraseMatchPredicate,
     RangePredicate,
     TermMatchPredicate,
@@ -32,7 +34,9 @@ class QueryPlanner:
         metabolite_clauses: list[FieldClauseSpec] = []
 
         for clause in spec.clauses:
-            if clause.field.target == Target.DATASET:
+            if isinstance(clause, ParameterPairClauseSpec):
+                dataset_clauses.append(clause)
+            elif clause.field.target == Target.DATASET:
                 dataset_clauses.append(clause)
             else:
                 metabolite_clauses.append(clause)
@@ -94,6 +98,12 @@ class QueryPlanner:
                 field_key=clause.field.field_key,
                 op=clause.comparator,
                 value=clause.value,
+            )
+        if isinstance(clause, ParameterPairClauseSpec):
+            return ParameterPairPredicate(
+                type_name=clause.type_name,
+                values=clause.values,
+                combine_values=clause.combine_values,
             )
         raise TypeError(f"Unknown clause type: {type(clause)}")
 

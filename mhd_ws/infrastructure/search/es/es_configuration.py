@@ -56,6 +56,7 @@ class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
             "instruments",
             "mass_analyzers",
             "parameters",
+            "parameter_groups",
             "factors",
         ]
     )

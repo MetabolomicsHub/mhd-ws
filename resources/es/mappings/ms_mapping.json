@@ -79,7 +79,8 @@
 
           "protocol_types": { "type": "keyword" },
           "parameter_types": { "type": "keyword" },
-          "parameter_values": { "type": "keyword" }
+          "parameter_values": { "type": "keyword" },
+          "parameter_kv": { "type": "keyword" }
         }
       },
 
@@ -166,6 +167,14 @@
           "value": { "type": "keyword" },
           "value_accession": { "type": "keyword" },
           "value_source": { "type": "keyword" }
+        }
+      },
+
+      "parameter_groups": {
+        "type": "nested",
+        "properties": {
+          "type_name": { "type": "keyword" },
+          "values": { "type": "keyword" }
         }
       },
 

@@ -345,6 +345,21 @@ FIELD_REGISTRY = FieldRegistry(
             facet_type="value",
         ),
         FieldDef(
+            field_id="facet_parameter_kv",
+            field_key="dataset.facets.parameter_kv",
+            target=Target.DATASET,
+            value_type=ValueType.KEYWORD,
+            ops=AllowedOperators(
+                allow_terms=True,
+                allow_comparators=False,
+                allowed_match_modes=["EXACT"],
+                allowed_intra_combiners=["AND", "OR"],
+            ),
+            description='Parameter type+value pairs as "type_name::value" (e.g. "Ion mode::positive")',
+            facet_key="parameter_kv",
+            facet_type="value",
+        ),
+        FieldDef(
             field_id="facet_instruments",
             field_key="dataset.instruments.name",
             target=Target.DATASET,

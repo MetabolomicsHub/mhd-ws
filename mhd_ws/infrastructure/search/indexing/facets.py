@@ -25,6 +25,7 @@ FACET_KEYS: tuple[str, ...] = (
     "protocol_types",
     "parameter_types",
     "parameter_values",
+    "parameter_kv",
 )
 
 SEARCH_FACET_KEYS: tuple[str, ...] = (

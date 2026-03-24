@@ -28,8 +28,17 @@ class ComparatorClauseDTO(BaseModel):
     value: Union[str, int, float]
 
 
+class ParameterPairClauseDTO(BaseModel):
+    kind: Literal["parameter_pair"] = "parameter_pair"
+    type_name: str
+    values: list[str]
+    op: IntraFieldCombiner = "OR"
+    not_: bool = Field(default=False, alias="not")
+    include_facet: bool = False
+
+
 FieldClauseDTO = Annotated[
-    Union[TermClauseDTO, ComparatorClauseDTO],
+    Union[TermClauseDTO, ComparatorClauseDTO, ParameterPairClauseDTO],
     Field(discriminator="kind"),
 ]
 
@@ -49,6 +58,5 @@ class SearchRequestDTO(BaseModel):
     query_text: Optional[str] = None
     inter_field_combiner: InterFieldCombiner = "AND"
     clauses: list[FieldClauseDTO] = Field(default_factory=list)
-
     page: Optional[PageDTO] = None
     sort: list[SortDTO] = Field(default_factory=list)

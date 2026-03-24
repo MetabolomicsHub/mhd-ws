@@ -225,6 +225,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "people": [],
         "organizations": [],
         "parameters": [],
+        "parameter_groups": [],
         "instruments": [],
         "mass_analyzers": [],
         "factors": [],
@@ -792,6 +793,31 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
                     doc["mass_analyzers"].append(analyzer_entry)
 
     doc["parameters"] = param_entries
+
+    # parameter_kv: flat "type_name::value" pairs for faceting/filtering
+    kv_seen: set[str] = set()
+    for entry in param_entries:
+        type_name = entry.get("type_name")
+        value = entry.get("value")
+        if type_name and value:
+            kv = f"{type_name}::{value}"
+            if kv not in kv_seen:
+                kv_seen.add(kv)
+                doc["facets"]["parameter_kv"].append(kv)
+
+    # parameter_groups: nested {type_name, values[]} for per-type drill-down
+    groups: dict[str, list[str]] = {}
+    for entry in param_entries:
+        type_name = entry.get("type_name")
+        value = entry.get("value")
+        if type_name and value:
+            if type_name not in groups:
+                groups[type_name] = []
+            if value not in groups[type_name]:
+                groups[type_name].append(value)
+    doc["parameter_groups"] = [
+        {"type_name": t, "values": vs} for t, vs in groups.items()
+    ]
 
     # File counts
     doc["files"]["metadata"]["count"] = sum(

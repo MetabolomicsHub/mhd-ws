@@ -18,6 +18,7 @@ from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolve
 from mhd_ws.domain.entities.search.dtos import (
     ComparatorClauseDTO,
     PageDTO,
+    ParameterPairClauseDTO,
     SearchRequestDTO,
     SortDTO,
     TermClauseDTO,
@@ -236,6 +237,27 @@ Exclude datasets associated with diabetes:
   ]
 }
 ```
+
+**Example: Parameter pair clause**
+
+Find positive scan polarity MS datasets and return the scan polarity value distribution in the facets:
+```json
+{
+  "clauses": [
+    {
+      "kind": "parameter_pair",
+      "type_name": "scan polarity",
+      "values": ["positive"],
+      "op": "OR",
+      "include_facet": true
+    }
+  ],
+  "page": {"current": 1, "size": 20}
+}
+```
+
+Use `"values": []` to match any dataset that has the parameter type regardless of value.
+Set `"include_facet": true` to receive the full value distribution for that parameter type in the response facets.
 """
 
 _ADVANCED_SEARCH_EXAMPLES = {
@@ -308,6 +330,25 @@ _ADVANCED_SEARCH_EXAMPLES = {
                     "not": True,
                 }
             ]
+        },
+    ),
+    "Parameter pair clause": Example(
+        summary="Parameter pair clause with facet drill-down",
+        description=(
+            "Find positive-polarity MS datasets. "
+            "Setting include_facet: true returns the full scan polarity value distribution in the response facets."
+        ),
+        value={
+            "clauses": [
+                {
+                    "kind": "parameter_pair",
+                    "type_name": "scan polarity",
+                    "values": ["positive"],
+                    "op": "OR",
+                    "include_facet": True,
+                }
+            ],
+            "page": {"current": 1, "size": 20},
         },
     ),
 }
@@ -523,7 +564,7 @@ def _build_filters(search_options: SearchOptions | None) -> list[FilterModel] | 
 
 
 def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchRequestDTO:
-    clauses: list[TermClauseDTO | ComparatorClauseDTO] = []
+    clauses: list[TermClauseDTO | ComparatorClauseDTO | ParameterPairClauseDTO] = []
 
     dataset_term_field = _find_field(
         field_registry, target=Target.DATASET, require_terms=True
@@ -542,6 +583,15 @@ def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchReque
     )
     if dataset_comparator_field:
         clauses.append(_build_comparator_clause_example(dataset_comparator_field))
+
+    clauses.append(
+        ParameterPairClauseDTO(
+            type_name="scan polarity",
+            values=["positive"],
+            op="OR",
+            include_facet=True,
+        )
+    )
 
     return SearchRequestDTO(
         query_text="glucose",
