@@ -71,6 +71,8 @@
           "sample_types": { "type": "keyword" },
 
           "characteristic_types": { "type": "keyword" },
+          "characteristic_values": { "type": "keyword" },
+          "characteristic_kv": { "type": "keyword" },
 
           "omics_types": { "type": "keyword" },
           "measurement_types": { "type": "keyword" },
@@ -185,6 +187,15 @@
           "source": { "type": "keyword" },
           "accession": { "type": "keyword" },
           "relationship": { "type": "keyword" }
+        }
+      },
+
+      "characteristic_groups": {
+        "type": "nested",
+        "properties": {
+          "type_name": { "type": "keyword" },
+          "values": { "type": "keyword" },
+          "kv": { "type": "keyword" }
         }
       },
 

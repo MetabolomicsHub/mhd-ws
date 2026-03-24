@@ -15,6 +15,7 @@ from mhd_ws.domain.entities.search.index_search import (
     SortModel,
 )
 from mhd_ws.domain.entities.search.index_search_spec import (
+    CharacteristicPairClauseSpec,
     ParameterPairClauseSpec,
     SearchSpec,
 )
@@ -180,6 +181,15 @@ class AdvancedSearchGateway(AdvancedSearchPort):
             body["aggs"].update(
                 compiler.compile_parameter_group_aggs(parameter_facet_types, self._facet_size)
             )
+        characteristic_facet_types = [
+            c.type_name
+            for c in spec.clauses
+            if isinstance(c, CharacteristicPairClauseSpec) and c.include_facet
+        ]
+        if characteristic_facet_types:
+            body["aggs"].update(
+                compiler.compile_characteristic_group_aggs(characteristic_facet_types, self._facet_size)
+            )
 
         logger.debug(
             "Advanced search payload for index=%s: %s",
@@ -226,6 +236,20 @@ class AdvancedSearchGateway(AdvancedSearchPort):
     def _map_aggs(aggs: dict[str, Any]) -> dict[str, FacetResponse]:
         facets: dict[str, FacetResponse] = {}
         for name, agg_data in aggs.items():
+            # Characteristic group drill-down: nested → by_type → values → buckets
+            if name.startswith("char__") and "by_type" in agg_data:
+                type_name = name[len("char__"):]
+                buckets_raw = (
+                    agg_data.get("by_type", {}).get("values", {}).get("buckets", [])
+                )
+                buckets = [
+                    FacetBucket(value=str(b["key"]), count=b["doc_count"])
+                    for b in buckets_raw
+                    if b.get("doc_count", 0) > 0
+                ]
+                facets[type_name] = FacetResponse(type="value", data=buckets)
+                continue
+
             # Parameter group drill-down: nested → by_type → values → buckets
             if name.startswith("param__") and "by_type" in agg_data:
                 type_name = name[len("param__"):]

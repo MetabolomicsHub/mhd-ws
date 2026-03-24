@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from mhd_ws.domain.entities.search.index_search_spec import (
+    CharacteristicPairClauseSpec,
     ComparatorClauseSpec,
     DescriptorClauseSpec,
     FieldClauseSpec,
@@ -13,6 +14,7 @@ from mhd_ws.domain.entities.search.index_search_spec import (
 from mhd_ws.domain.entities.search.predicate_tree import (
     AndExpr,
     BoolExpr,
+    CharacteristicPairPredicate,
     DescriptorPredicate,
     ExactMatchPredicate,
     NotExpr,
@@ -36,7 +38,7 @@ class QueryPlanner:
         metabolite_clauses: list[FieldClauseSpec] = []
 
         for clause in spec.clauses:
-            if isinstance(clause, (ParameterPairClauseSpec, DescriptorClauseSpec)):
+            if isinstance(clause, (ParameterPairClauseSpec, DescriptorClauseSpec, CharacteristicPairClauseSpec)):
                 dataset_clauses.append(clause)
             elif clause.field.target == Target.DATASET:
                 dataset_clauses.append(clause)
@@ -112,6 +114,12 @@ class QueryPlanner:
                 relationship=clause.relationship,
                 names=clause.names,
                 combine_names=clause.combine_names,
+            )
+        if isinstance(clause, CharacteristicPairClauseSpec):
+            return CharacteristicPairPredicate(
+                type_name=clause.type_name,
+                values=clause.values,
+                combine_values=clause.combine_values,
             )
         raise TypeError(f"Unknown clause type: {type(clause)}")
 

@@ -66,8 +66,18 @@ class DescriptorClauseSpec(BaseModel):
     target: Target = Target.DATASET
 
 
+class CharacteristicPairClauseSpec(BaseModel):
+    kind: Literal["characteristic_pair"] = "characteristic_pair"
+    type_name: str  # stored lowercase
+    values: list[str]
+    combine_values: IntraFieldCombiner = "OR"
+    negated: bool = False
+    include_facet: bool = False
+    target: Target = Target.DATASET
+
+
 FieldClauseSpec = Annotated[
-    Union[TermClauseSpec, ComparatorClauseSpec, ParameterPairClauseSpec, DescriptorClauseSpec],
+    Union[TermClauseSpec, ComparatorClauseSpec, ParameterPairClauseSpec, DescriptorClauseSpec, CharacteristicPairClauseSpec],
     Field(discriminator="kind"),
 ]
 

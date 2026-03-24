@@ -360,6 +360,21 @@ FIELD_REGISTRY = FieldRegistry(
             facet_type="value",
         ),
         FieldDef(
+            field_id="facet_characteristic_kv",
+            field_key="dataset.characteristic_groups.kv",
+            target=Target.DATASET,
+            value_type=ValueType.KEYWORD,
+            ops=AllowedOperators(
+                allow_terms=True,
+                allow_comparators=False,
+                allowed_match_modes=["EXACT"],
+                allowed_intra_combiners=["AND", "OR"],
+            ),
+            description='Characteristic type+value pairs as "type_name::value" (e.g. "cell line::mcf7"), facet excludes domain-specific types',
+            facet_key="characteristic_kv",
+            facet_type="value",
+        ),
+        FieldDef(
             field_id="facet_descriptors",
             field_key="dataset.descriptors.name",
             target=Target.DATASET,

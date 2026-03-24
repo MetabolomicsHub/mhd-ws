@@ -17,6 +17,8 @@ FACET_KEYS: tuple[str, ...] = (
     "tissues",
     "sample_types",
     "characteristic_types",
+    "characteristic_values",
+    "characteristic_kv",
     "omics_types",
     "measurement_types",
     "assay_types",

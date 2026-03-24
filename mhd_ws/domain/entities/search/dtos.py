@@ -45,8 +45,17 @@ class DescriptorClauseDTO(BaseModel):
     not_: bool = Field(default=False, alias="not")
 
 
+class CharacteristicPairClauseDTO(BaseModel):
+    kind: Literal["characteristic_pair"] = "characteristic_pair"
+    type_name: str
+    values: list[str]
+    op: IntraFieldCombiner = "OR"
+    not_: bool = Field(default=False, alias="not")
+    include_facet: bool = False
+
+
 FieldClauseDTO = Annotated[
-    Union[TermClauseDTO, ComparatorClauseDTO, ParameterPairClauseDTO, DescriptorClauseDTO],
+    Union[TermClauseDTO, ComparatorClauseDTO, ParameterPairClauseDTO, DescriptorClauseDTO, CharacteristicPairClauseDTO],
     Field(discriminator="kind"),
 ]
 

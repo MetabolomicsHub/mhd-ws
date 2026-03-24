@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from mhd_ws.domain.entities.search.dtos import (
+    CharacteristicPairClauseDTO,
     ComparatorClauseDTO,
     DescriptorClauseDTO,
     ParameterPairClauseDTO,
@@ -8,6 +9,7 @@ from mhd_ws.domain.entities.search.dtos import (
     TermClauseDTO,
 )
 from mhd_ws.domain.entities.search.index_search_spec import (
+    CharacteristicPairClauseSpec,
     ComparatorClauseSpec,
     DescriptorClauseSpec,
     FieldClauseSpec,
@@ -34,6 +36,8 @@ class SearchSpecResolver:
                 clauses.append(self._resolve_parameter_pair_clause(clause))
             elif isinstance(clause, DescriptorClauseDTO):
                 clauses.append(self._resolve_descriptor_clause(clause))
+            elif isinstance(clause, CharacteristicPairClauseDTO):
+                clauses.append(self._resolve_characteristic_pair_clause(clause))
         return SearchSpec(
             query_text=dto.query_text,
             inter_field_combiner=dto.inter_field_combiner,
@@ -92,6 +96,18 @@ class SearchSpecResolver:
             names=clause.names,
             combine_names=clause.op,
             negated=clause.not_,
+        )
+
+    @staticmethod
+    def _resolve_characteristic_pair_clause(
+        clause: CharacteristicPairClauseDTO,
+    ) -> CharacteristicPairClauseSpec:
+        return CharacteristicPairClauseSpec(
+            type_name=clause.type_name.strip().lower(),
+            values=clause.values,
+            combine_values=clause.op,
+            negated=clause.not_,
+            include_facet=clause.include_facet,
         )
 
     def _lookup(self, field_id: str) -> FieldDef:

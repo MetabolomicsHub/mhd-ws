@@ -494,6 +494,70 @@ def build_index_capabilities(
                         exact_es_path="parameter_groups.values",
                     ),
                     FieldCapability(
+                        field_key="dataset.facets.characteristic_kv",
+                        value_type=ValueType.KEYWORD,
+                        es_path="facets.characteristic_kv",
+                        supports_terms=True,
+                        supports_phrase=False,
+                        supports_exact=True,
+                        keyword_strategy=KeywordQueryStrategy.TERMS,
+                        exact_es_path="facets.characteristic_kv",
+                    ),
+                    FieldCapability(
+                        field_key="dataset.characteristic_groups.type_name",
+                        value_type=ValueType.KEYWORD,
+                        es_path="characteristic_groups.type_name",
+                        nested=NestedSpec(path="characteristic_groups"),
+                        supports_terms=True,
+                        supports_phrase=False,
+                        supports_exact=True,
+                        keyword_strategy=KeywordQueryStrategy.TERMS,
+                        exact_es_path="characteristic_groups.type_name",
+                    ),
+                    FieldCapability(
+                        field_key="dataset.characteristic_groups.values",
+                        value_type=ValueType.KEYWORD,
+                        es_path="characteristic_groups.values",
+                        nested=NestedSpec(path="characteristic_groups"),
+                        supports_terms=True,
+                        supports_phrase=False,
+                        supports_exact=True,
+                        keyword_strategy=KeywordQueryStrategy.TERMS,
+                        exact_es_path="characteristic_groups.values",
+                    ),
+                    FieldCapability(
+                        field_key="dataset.characteristic_groups.kv",
+                        value_type=ValueType.KEYWORD,
+                        es_path="characteristic_groups.kv",
+                        nested=NestedSpec(
+                            path="characteristic_groups",
+                            facet_filter={
+                                "bool": {
+                                    "must_not": {
+                                        "terms": {
+                                            "characteristic_groups.type_name": [
+                                                "organism",
+                                                "species",
+                                                "organism part",
+                                                "tissue",
+                                                "tissues",
+                                                "disease",
+                                                "phenotype",
+                                                "sample type",
+                                                "specimen",
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                        ),
+                        supports_terms=True,
+                        supports_phrase=False,
+                        supports_exact=True,
+                        keyword_strategy=KeywordQueryStrategy.TERMS,
+                        exact_es_path="characteristic_groups.kv",
+                    ),
+                    FieldCapability(
                         field_key="dataset.samples.count",
                         value_type=ValueType.NUMBER,
                         es_path="samples.count",

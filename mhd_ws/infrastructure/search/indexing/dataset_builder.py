@@ -297,6 +297,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "organizations": [],
         "parameters": [],
         "parameter_groups": [],
+        "characteristic_groups": [],
         "descriptors": [],
         "ms_instruments": [],
         "chromatography_instruments": [],
@@ -581,6 +582,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             doc["facets"]["characteristic_types"].append(nm)
 
     # Characteristic values
+    char_entries: list[dict[str, str]] = []
     for cv_node in [
         n
         for n in node_by_id.values()
@@ -616,6 +618,10 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
                     type_names.append(type_name)
 
         for char_type_name in type_names:
+            type_name_lc = char_type_name.strip().lower()
+            if label and type_name_lc:
+                char_entries.append({"type_name": type_name_lc, "value": label})
+
             bucket = route_characteristic_to_facet(char_type_name)
             if not bucket:
                 continue
@@ -636,6 +642,38 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             elif bucket == "sample_types":
                 if label:
                     doc["facets"]["sample_types"].append(label)
+
+    # characteristic_kv and characteristic_values flat facets (all pairs)
+    char_kv_seen: set[str] = set()
+    char_val_seen: set[str] = set()
+    for entry in char_entries:
+        type_name = entry["type_name"]
+        value = entry["value"]
+        kv = f"{type_name}::{value}"
+        if kv not in char_kv_seen:
+            char_kv_seen.add(kv)
+            doc["facets"]["characteristic_kv"].append(kv)
+        if value not in char_val_seen:
+            char_val_seen.add(value)
+            doc["facets"]["characteristic_values"].append(value)
+
+    # characteristic_groups: nested {type_name, values[], kv[]} for correlated search and facet
+    char_groups: dict[str, list[str]] = {}
+    for entry in char_entries:
+        type_name = entry["type_name"]
+        value = entry["value"]
+        if type_name not in char_groups:
+            char_groups[type_name] = []
+        if value not in char_groups[type_name]:
+            char_groups[type_name].append(value)
+    doc["characteristic_groups"] = [
+        {
+            "type_name": t,
+            "values": vs,
+            "kv": [f"{t}::{v}" for v in vs],
+        }
+        for t, vs in char_groups.items()
+    ]
 
     # Factor values
     factor_def_ids = rel_targets(relidx, study_id, "has-factor-definition")

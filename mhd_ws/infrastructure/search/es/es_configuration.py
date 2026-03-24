@@ -60,6 +60,7 @@ class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
             "mass_analyzers",
             "parameters",
             "parameter_groups",
+            "characteristic_groups",
             "factors",
         ]
     )

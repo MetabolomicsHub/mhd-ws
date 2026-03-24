@@ -7,6 +7,7 @@ from datetime import datetime
 from mhd_ws.domain.entities.search.predicate_tree import (
     AndExpr,
     BoolExpr,
+    CharacteristicPairPredicate,
     DescriptorPredicate,
     ExactMatchPredicate,
     NotExpr,
@@ -146,6 +147,8 @@ class EsDslCompiler:
             return self._compile_parameter_pair(expr)
         if isinstance(expr, DescriptorPredicate):
             return self._compile_descriptor(expr)
+        if isinstance(expr, CharacteristicPairPredicate):
+            return self._compile_characteristic_pair(expr)
         raise TypeError(f"Unknown expression type: {type(expr)}")
 
     def _compile_and(self, expr: AndExpr) -> dict[str, Any]:
@@ -255,6 +258,52 @@ class EsDslCompiler:
             inner = {"bool": {"filter": [rel_filter, {"terms": {name_path: pred.names}}]}}
 
         return {"nested": {"path": "descriptors", "query": inner}}
+
+    def _compile_characteristic_pair(self, pred: CharacteristicPairPredicate) -> dict[str, Any]:
+        type_cap = self._caps.get_field("dataset.characteristic_groups.type_name")
+        values_cap = self._caps.get_field("dataset.characteristic_groups.values")
+        type_path = type_cap.es_path if type_cap else "characteristic_groups.type_name"
+        values_path = values_cap.es_path if values_cap else "characteristic_groups.values"
+
+        type_filter: dict[str, Any] = {"term": {type_path: pred.type_name}}
+
+        if not pred.values:
+            inner: dict[str, Any] = {"bool": {"filter": [type_filter]}}
+        elif len(pred.values) == 1:
+            inner = {"bool": {"filter": [type_filter, {"term": {values_path: pred.values[0]}}]}}
+        elif pred.combine_values == "AND":
+            inner = {"bool": {"filter": [type_filter] + [{"term": {values_path: v}} for v in pred.values]}}
+        else:
+            inner = {"bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}}
+
+        return {"nested": {"path": "characteristic_groups", "query": inner}}
+
+    def compile_characteristic_group_aggs(
+        self, type_names: list[str], facet_size: int = 25
+    ) -> dict[str, Any]:
+        """Per-type drill-down aggs for characteristic_groups: nested → filter(type_name) → terms(values)."""
+        type_cap = self._caps.get_field("dataset.characteristic_groups.type_name")
+        values_cap = self._caps.get_field("dataset.characteristic_groups.values")
+        type_path = type_cap.es_path if type_cap else "characteristic_groups.type_name"
+        values_path = values_cap.es_path if values_cap else "characteristic_groups.values"
+
+        aggs: dict[str, Any] = {}
+        for type_name in type_names:
+            key = f"char__{type_name}"
+            aggs[key] = {
+                "nested": {"path": "characteristic_groups"},
+                "aggs": {
+                    "by_type": {
+                        "filter": {"term": {type_path: type_name}},
+                        "aggs": {
+                            "values": {
+                                "terms": {"field": values_path, "size": facet_size}
+                            }
+                        },
+                    }
+                },
+            }
+        return aggs
 
     def compile_parameter_group_aggs(
         self, type_names: list[str], facet_size: int = 25
