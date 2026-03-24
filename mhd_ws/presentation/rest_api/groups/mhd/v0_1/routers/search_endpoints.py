@@ -16,6 +16,7 @@ from mhd_ws.application.services.interfaces.advanced_search_port import (
 from mhd_ws.application.services.interfaces.search_port import SearchPort
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
 from mhd_ws.domain.entities.search.dtos import (
+    CharacteristicPairClauseDTO,
     ComparatorClauseDTO,
     DescriptorClauseDTO,
     PageDTO,
@@ -282,6 +283,28 @@ Common `relationship` values: `"study.has-submitter-keyword"`, `"study.has-repos
 `"assay.omics_type"`, `"assay.technology_type"`, `"assay.measurement_type"`, `"assay.assay_type"`,
 `"metadata-file.format"`, `"raw-data-file.format"`.
 Use `"op": "AND"` to require all named descriptors to be present on the same relationship.
+
+**Example: Characteristic pair clause**
+
+Find datasets where samples have a specific characteristic type and value (e.g. cell line). The `type_name`
+is matched case-insensitively (stored lowercase). Set `"include_facet": true` to receive the full value
+distribution for that characteristic type in the response facets:
+```json
+{
+  "clauses": [
+    {
+      "kind": "characteristic_pair",
+      "type_name": "cell line",
+      "values": ["MCF7", "HeLa"],
+      "op": "OR",
+      "include_facet": true
+    }
+  ],
+  "page": {"current": 1, "size": 20}
+}
+```
+
+Use `"values": []` to match any dataset that has the characteristic type regardless of value.
 """
 
 _ADVANCED_SEARCH_EXAMPLES = {
@@ -390,6 +413,28 @@ _ADVANCED_SEARCH_EXAMPLES = {
                     "relationship": "study.has-submitter-keyword",
                     "names": ["COVID-19", "Lung Injury"],
                     "op": "OR",
+                }
+            ],
+            "page": {"current": 1, "size": 20},
+        },
+    ),
+    "Characteristic pair clause": Example(
+        summary="Characteristic pair clause with facet drill-down",
+        description=(
+            "Find datasets where samples have a specific cell line characteristic. "
+            "The type_name is matched case-insensitively (stored lowercase). "
+            "Setting include_facet: true returns the full value distribution for that "
+            "characteristic type in the response facets. "
+            "Use values: [] to match any dataset that has the characteristic type regardless of value."
+        ),
+        value={
+            "clauses": [
+                {
+                    "kind": "characteristic_pair",
+                    "type_name": "cell line",
+                    "values": ["MCF7", "HeLa"],
+                    "op": "OR",
+                    "include_facet": True,
                 }
             ],
             "page": {"current": 1, "size": 20},
@@ -608,7 +653,7 @@ def _build_filters(search_options: SearchOptions | None) -> list[FilterModel] | 
 
 
 def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchRequestDTO:
-    clauses: list[TermClauseDTO | ComparatorClauseDTO | ParameterPairClauseDTO | DescriptorClauseDTO] = []
+    clauses: list[TermClauseDTO | ComparatorClauseDTO | ParameterPairClauseDTO | DescriptorClauseDTO | CharacteristicPairClauseDTO] = []
 
     dataset_term_field = _find_field(
         field_registry, target=Target.DATASET, require_terms=True
@@ -642,6 +687,15 @@ def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchReque
             relationship="study.has-submitter-keyword",
             names=["COVID-19"],
             op="OR",
+        )
+    )
+
+    clauses.append(
+        CharacteristicPairClauseDTO(
+            type_name="cell line",
+            values=["MCF7"],
+            op="OR",
+            include_facet=True,
         )
     )
 
