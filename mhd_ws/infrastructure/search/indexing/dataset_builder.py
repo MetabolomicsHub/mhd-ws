@@ -44,7 +44,10 @@ ROLE_ALIASES = {
     "submits": "submitter",
 }
 
-INSTRUMENT_TYPE_ACCESSIONS = {"MSIO:0000171"}
+# Maps known type_accessions to their instrument bucket when type_name is absent/ambiguous
+INSTRUMENT_ACCESSION_BUCKET: dict[str, str] = {
+    "MSIO:0000171": "ms_instruments",
+}
 STUDY_ORG_REL_NAMES = {"funds", "funded-by"}
 MASS_ANALYZER_KEYWORDS = ("mass analyzer", "mass analyser")
 SAMPLE_NODE_TYPES = {"sample"}
@@ -226,7 +229,9 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "organizations": [],
         "parameters": [],
         "parameter_groups": [],
-        "instruments": [],
+        "ms_instruments": [],
+        "chromatography_instruments": [],
+        "other_instruments": [],
         "mass_analyzers": [],
         "factors": [],
         "project": {},
@@ -770,7 +775,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             type_name_lc = (type_name or "").lower()
             is_instrument = "instrument" in type_name_lc or (
                 type_accession or ""
-            ) in INSTRUMENT_TYPE_ACCESSIONS
+            ) in INSTRUMENT_ACCESSION_BUCKET
             if is_instrument and value_label:
                 inst_entry = {
                     "name": value_label,
@@ -778,8 +783,16 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
                     "type_accession": type_accession,
                     "type_source": type_source,
                 }
-                if inst_entry not in doc["instruments"]:
-                    doc["instruments"].append(inst_entry)
+                if type_name_lc == "mass spectrometry instrument":
+                    bucket = "ms_instruments"
+                elif type_name_lc == "chromatography instrument":
+                    bucket = "chromatography_instruments"
+                else:
+                    bucket = INSTRUMENT_ACCESSION_BUCKET.get(
+                        type_accession or "", "other_instruments"
+                    )
+                if inst_entry not in doc[bucket]:
+                    doc[bucket].append(inst_entry)
 
             is_mass_analyzer = any(k in type_name_lc for k in MASS_ANALYZER_KEYWORDS)
             if is_mass_analyzer and value_label:
@@ -871,7 +884,9 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         doc.get("people", []),
         doc.get("organizations", []),
         doc.get("parameters", []),
-        doc.get("instruments", []),
+        doc.get("ms_instruments", []),
+        doc.get("chromatography_instruments", []),
+        doc.get("other_instruments", []),
         doc.get("mass_analyzers", []),
         doc.get("factors", []),
         doc.get("protocols", []),

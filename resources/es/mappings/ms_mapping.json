@@ -178,7 +178,27 @@
         }
       },
 
-      "instruments": {
+      "ms_instruments": {
+        "type": "nested",
+        "properties": {
+          "name": { "type": "keyword" },
+          "type_name": { "type": "keyword" },
+          "type_accession": { "type": "keyword" },
+          "type_source": { "type": "keyword" }
+        }
+      },
+
+      "chromatography_instruments": {
+        "type": "nested",
+        "properties": {
+          "name": { "type": "keyword" },
+          "type_name": { "type": "keyword" },
+          "type_accession": { "type": "keyword" },
+          "type_source": { "type": "keyword" }
+        }
+      },
+
+      "other_instruments": {
         "type": "nested",
         "properties": {
           "name": { "type": "keyword" },
