@@ -17,6 +17,7 @@ from mhd_ws.application.services.interfaces.search_port import SearchPort
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
 from mhd_ws.domain.entities.search.dtos import (
     ComparatorClauseDTO,
+    DescriptorClauseDTO,
     PageDTO,
     ParameterPairClauseDTO,
     SearchRequestDTO,
@@ -258,6 +259,29 @@ Find positive scan polarity MS datasets and return the scan polarity value distr
 
 Use `"values": []` to match any dataset that has the parameter type regardless of value.
 Set `"include_facet": true` to receive the full value distribution for that parameter type in the response facets.
+
+**Example: Descriptor clause**
+
+Find datasets tagged with a specific ontology term via a known relationship. The `relationship` field
+disambiguates which part of the graph the descriptor was attached to:
+```json
+{
+  "clauses": [
+    {
+      "kind": "descriptor",
+      "relationship": "study.has-submitter-keyword",
+      "names": ["COVID-19", "Lung Injury"],
+      "op": "OR"
+    }
+  ],
+  "page": {"current": 1, "size": 20}
+}
+```
+
+Common `relationship` values: `"study.has-submitter-keyword"`, `"study.has-repository-keyword"`,
+`"assay.omics_type"`, `"assay.technology_type"`, `"assay.measurement_type"`, `"assay.assay_type"`,
+`"metadata-file.format"`, `"raw-data-file.format"`.
+Use `"op": "AND"` to require all named descriptors to be present on the same relationship.
 """
 
 _ADVANCED_SEARCH_EXAMPLES = {
@@ -346,6 +370,26 @@ _ADVANCED_SEARCH_EXAMPLES = {
                     "values": ["positive"],
                     "op": "OR",
                     "include_facet": True,
+                }
+            ],
+            "page": {"current": 1, "size": 20},
+        },
+    ),
+    "Descriptor clause": Example(
+        summary="Descriptor clause — relationship-qualified ontology tag search",
+        description=(
+            "Find datasets tagged with COVID-19 or Lung Injury as submitter keywords. "
+            "The relationship field scopes the match to descriptors attached via a specific "
+            "graph relationship, preventing false matches from the same term appearing in "
+            "a different context (e.g. as a file format or assay type)."
+        ),
+        value={
+            "clauses": [
+                {
+                    "kind": "descriptor",
+                    "relationship": "study.has-submitter-keyword",
+                    "names": ["COVID-19", "Lung Injury"],
+                    "op": "OR",
                 }
             ],
             "page": {"current": 1, "size": 20},
@@ -564,7 +608,7 @@ def _build_filters(search_options: SearchOptions | None) -> list[FilterModel] | 
 
 
 def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchRequestDTO:
-    clauses: list[TermClauseDTO | ComparatorClauseDTO | ParameterPairClauseDTO] = []
+    clauses: list[TermClauseDTO | ComparatorClauseDTO | ParameterPairClauseDTO | DescriptorClauseDTO] = []
 
     dataset_term_field = _find_field(
         field_registry, target=Target.DATASET, require_terms=True
@@ -590,6 +634,14 @@ def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchReque
             values=["positive"],
             op="OR",
             include_facet=True,
+        )
+    )
+
+    clauses.append(
+        DescriptorClauseDTO(
+            relationship="study.has-submitter-keyword",
+            names=["COVID-19"],
+            op="OR",
         )
     )
 

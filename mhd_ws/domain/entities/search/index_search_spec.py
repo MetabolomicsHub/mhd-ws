@@ -57,8 +57,17 @@ class ParameterPairClauseSpec(BaseModel):
     target: Target = Target.DATASET
 
 
+class DescriptorClauseSpec(BaseModel):
+    kind: Literal["descriptor"] = "descriptor"
+    relationship: str
+    names: list[str]
+    combine_names: IntraFieldCombiner = "OR"
+    negated: bool = False
+    target: Target = Target.DATASET
+
+
 FieldClauseSpec = Annotated[
-    Union[TermClauseSpec, ComparatorClauseSpec, ParameterPairClauseSpec],
+    Union[TermClauseSpec, ComparatorClauseSpec, ParameterPairClauseSpec, DescriptorClauseSpec],
     Field(discriminator="kind"),
 ]
 

@@ -621,6 +621,38 @@ def build_index_capabilities(
                         supports_comparators=True,
                     ),
                     FieldCapability(
+                        field_key="dataset.descriptors.name",
+                        value_type=ValueType.KEYWORD,
+                        es_path="descriptors.name",
+                        nested=NestedSpec(
+                            path="descriptors",
+                            facet_filter={
+                                "terms": {
+                                    "descriptors.relationship": [
+                                        "study.has-submitter-keyword",
+                                        "study.has-repository-keyword",
+                                    ]
+                                }
+                            },
+                        ),
+                        supports_terms=True,
+                        supports_phrase=False,
+                        supports_exact=True,
+                        keyword_strategy=KeywordQueryStrategy.TERMS,
+                        exact_es_path="descriptors.name",
+                    ),
+                    FieldCapability(
+                        field_key="dataset.descriptors.relationship",
+                        value_type=ValueType.KEYWORD,
+                        es_path="descriptors.relationship",
+                        nested=NestedSpec(path="descriptors"),
+                        supports_terms=True,
+                        supports_phrase=False,
+                        supports_exact=True,
+                        keyword_strategy=KeywordQueryStrategy.TERMS,
+                        exact_es_path="descriptors.relationship",
+                    ),
+                    FieldCapability(
                         field_key="dataset.ms_instruments.name",
                         value_type=ValueType.KEYWORD,
                         es_path="ms_instruments.name",

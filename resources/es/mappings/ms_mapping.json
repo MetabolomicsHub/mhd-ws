@@ -178,6 +178,16 @@
         }
       },
 
+      "descriptors": {
+        "type": "nested",
+        "properties": {
+          "name": { "type": "keyword" },
+          "source": { "type": "keyword" },
+          "accession": { "type": "keyword" },
+          "relationship": { "type": "keyword" }
+        }
+      },
+
       "ms_instruments": {
         "type": "nested",
         "properties": {

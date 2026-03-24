@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from mhd_ws.domain.entities.search.types import ComparatorOp
 
 
-PredicateKind = Literal["TERM_MATCH", "PHRASE_MATCH", "EXACT_MATCH", "RANGE", "PARAMETER_PAIR"]
+PredicateKind = Literal["TERM_MATCH", "PHRASE_MATCH", "EXACT_MATCH", "RANGE", "PARAMETER_PAIR", "DESCRIPTOR"]
 
 
 class AndExpr(BaseModel):
@@ -56,6 +56,13 @@ class ParameterPairPredicate(BaseModel):
     combine_values: str = "OR"  # "OR" or "AND"
 
 
+class DescriptorPredicate(BaseModel):
+    kind: Literal["DESCRIPTOR"] = "DESCRIPTOR"
+    relationship: str
+    names: list[str]
+    combine_names: str = "OR"  # "OR" or "AND"
+
+
 Predicate = Annotated[
     Union[
         TermMatchPredicate,
@@ -63,6 +70,7 @@ Predicate = Annotated[
         ExactMatchPredicate,
         RangePredicate,
         ParameterPairPredicate,
+        DescriptorPredicate,
     ],
     Field(discriminator="kind"),
 ]

@@ -37,8 +37,16 @@ class ParameterPairClauseDTO(BaseModel):
     include_facet: bool = False
 
 
+class DescriptorClauseDTO(BaseModel):
+    kind: Literal["descriptor"] = "descriptor"
+    relationship: str
+    names: Annotated[list[str], Field(min_length=1)]
+    op: IntraFieldCombiner = "OR"
+    not_: bool = Field(default=False, alias="not")
+
+
 FieldClauseDTO = Annotated[
-    Union[TermClauseDTO, ComparatorClauseDTO, ParameterPairClauseDTO],
+    Union[TermClauseDTO, ComparatorClauseDTO, ParameterPairClauseDTO, DescriptorClauseDTO],
     Field(discriminator="kind"),
 ]
 

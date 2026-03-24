@@ -172,6 +172,74 @@ def _collect_strings(value: Any, out: list[str]) -> None:
             _collect_strings(v, out)
 
 
+# Relationship names from study node → descriptor (used as the `relationship` field value)
+_STUDY_DESCRIPTOR_RELS = ("has-submitter-keyword", "has-repository-keyword")
+
+# (node_type, ref_field) → relationship label stored in the descriptor entry
+_NODE_REF_DESCRIPTOR_SOURCES: tuple[tuple[str, str, str], ...] = (
+    ("assay", "assay_type_ref", "assay.assay_type"),
+    ("assay", "omics_type_ref", "assay.omics_type"),
+    ("assay", "measurement_type_ref", "assay.measurement_type"),
+    ("assay", "technology_type_ref", "assay.technology_type"),
+    ("metadata-file", "format_ref", "metadata-file.format"),
+    ("raw-data-file", "format_ref", "raw-data-file.format"),
+    ("result-file", "format_ref", "result-file.format"),
+)
+
+
+def _collect_descriptors(
+    doc: dict[str, Any],
+    node_by_id: dict[str, Any],
+    relidx: Any,
+    study_id: str,
+    assay_nodes: list[dict[str, Any]],
+) -> None:
+    """Populate doc['descriptors'] from all known relationship/ref sources."""
+    seen: set[tuple[str, str]] = set()  # (descriptor_id, relationship)
+
+    def _add(descriptor_node: dict[str, Any], relationship: str) -> None:
+        did = descriptor_node.get("id", "")
+        key = (did, relationship)
+        if key in seen:
+            return
+        seen.add(key)
+        name = descriptor_node.get("name")
+        if not name:
+            return
+        doc["descriptors"].append({
+            "name": name,
+            "source": descriptor_node.get("source"),
+            "accession": descriptor_node.get("accession"),
+            "relationship": relationship,
+        })
+
+    # Study-level keyword relationships
+    for rel_name in _STUDY_DESCRIPTOR_RELS:
+        for target_id in rel_targets(relidx, study_id, rel_name):
+            node = node_by_id.get(target_id)
+            if node and node.get("type") == "descriptor":
+                _add(node, f"study.{rel_name}")
+
+    # Embedded ref fields on assay and file nodes
+    nodes_by_type: dict[str, list[dict[str, Any]]] = {}
+    for node in node_by_id.values():
+        ntype = node.get("type", "")
+        nodes_by_type.setdefault(ntype, []).append(node)
+
+    for node_type, ref_field, rel_label in _NODE_REF_DESCRIPTOR_SOURCES:
+        if node_type == "assay":
+            source_nodes = assay_nodes
+        else:
+            source_nodes = nodes_by_type.get(node_type, [])
+        for node in source_nodes:
+            ref_id = node.get(ref_field)
+            if not ref_id:
+                continue
+            desc = node_by_id.get(ref_id)
+            if desc and desc.get("type") == "descriptor":
+                _add(desc, rel_label)
+
+
 def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
     mhd: dict[str, Any], indexed_iso: str
 ) -> dict[str, Any]:
@@ -229,6 +297,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         "organizations": [],
         "parameters": [],
         "parameter_groups": [],
+        "descriptors": [],
         "ms_instruments": [],
         "chromatography_instruments": [],
         "other_instruments": [],
@@ -832,6 +901,9 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         {"type_name": t, "values": vs} for t, vs in groups.items()
     ]
 
+    # Descriptors: collect all descriptor nodes reachable via known relationships/refs
+    _collect_descriptors(doc, node_by_id, relidx, study_id, assay_nodes)
+
     # File counts
     doc["files"]["metadata"]["count"] = sum(
         1 for n in node_by_id.values() if n.get("type") == "metadata-file"
@@ -884,6 +956,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         doc.get("people", []),
         doc.get("organizations", []),
         doc.get("parameters", []),
+        doc.get("descriptors", []),
         doc.get("ms_instruments", []),
         doc.get("chromatography_instruments", []),
         doc.get("other_instruments", []),

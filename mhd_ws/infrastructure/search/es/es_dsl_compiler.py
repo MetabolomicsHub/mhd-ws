@@ -7,6 +7,7 @@ from datetime import datetime
 from mhd_ws.domain.entities.search.predicate_tree import (
     AndExpr,
     BoolExpr,
+    DescriptorPredicate,
     ExactMatchPredicate,
     NotExpr,
     OrExpr,
@@ -70,17 +71,25 @@ class EsDslCompiler:
                     }
                 }
             elif field.facet_type == "value":
+                terms_agg = {"terms": {"field": cap.es_path, "size": facet_size}}
                 if cap.nested:
-                    aggs[field.facet_key] = {
-                        "nested": {"path": cap.nested.path},
-                        "aggs": {
-                            "values": {"terms": {"field": cap.es_path, "size": facet_size}}
-                        },
-                    }
+                    if cap.nested.facet_filter:
+                        aggs[field.facet_key] = {
+                            "nested": {"path": cap.nested.path},
+                            "aggs": {
+                                "filtered": {
+                                    "filter": cap.nested.facet_filter,
+                                    "aggs": {"values": terms_agg},
+                                }
+                            },
+                        }
+                    else:
+                        aggs[field.facet_key] = {
+                            "nested": {"path": cap.nested.path},
+                            "aggs": {"values": terms_agg},
+                        }
                 else:
-                    aggs[field.facet_key] = {
-                        "terms": {"field": cap.es_path, "size": facet_size}
-                    }
+                    aggs[field.facet_key] = terms_agg
         return aggs
 
     @staticmethod
@@ -135,6 +144,8 @@ class EsDslCompiler:
             return self._compile_range(expr)
         if isinstance(expr, ParameterPairPredicate):
             return self._compile_parameter_pair(expr)
+        if isinstance(expr, DescriptorPredicate):
+            return self._compile_descriptor(expr)
         raise TypeError(f"Unknown expression type: {type(expr)}")
 
     def _compile_and(self, expr: AndExpr) -> dict[str, Any]:
@@ -217,6 +228,33 @@ class EsDslCompiler:
             inner = {"bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}}
 
         return {"nested": {"path": "parameter_groups", "query": inner}}
+
+    def _compile_descriptor(self, pred: DescriptorPredicate) -> dict[str, Any]:
+        rel_cap = self._caps.get_field("dataset.descriptors.relationship")
+        name_cap = self._caps.get_field("dataset.descriptors.name")
+        rel_path = rel_cap.es_path if rel_cap else "descriptors.relationship"
+        name_path = (
+            name_cap.exact_es_path
+            if name_cap and name_cap.exact_es_path
+            else (name_cap.es_path if name_cap else "descriptors.name")
+        )
+
+        rel_filter: dict[str, Any] = {"term": {rel_path: pred.relationship}}
+
+        if not pred.names:
+            inner: dict[str, Any] = {"bool": {"filter": [rel_filter]}}
+        elif len(pred.names) == 1:
+            inner = {"bool": {"filter": [rel_filter, {"term": {name_path: pred.names[0]}}]}}
+        elif pred.combine_names == "AND":
+            inner = {
+                "bool": {
+                    "filter": [rel_filter] + [{"term": {name_path: n}} for n in pred.names]
+                }
+            }
+        else:
+            inner = {"bool": {"filter": [rel_filter, {"terms": {name_path: pred.names}}]}}
+
+        return {"nested": {"path": "descriptors", "query": inner}}
 
     def compile_parameter_group_aggs(
         self, type_names: list[str], facet_size: int = 25

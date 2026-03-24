@@ -68,6 +68,7 @@ class KeywordQueryStrategy(str, Enum):
 
 class NestedSpec(BaseModel):
     path: str
+    facet_filter: dict | None = None
 
 
 class FieldCapability(BaseModel):

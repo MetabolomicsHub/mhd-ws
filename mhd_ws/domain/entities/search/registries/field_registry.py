@@ -360,6 +360,21 @@ FIELD_REGISTRY = FieldRegistry(
             facet_type="value",
         ),
         FieldDef(
+            field_id="facet_descriptors",
+            field_key="dataset.descriptors.name",
+            target=Target.DATASET,
+            value_type=ValueType.KEYWORD,
+            ops=AllowedOperators(
+                allow_terms=True,
+                allow_comparators=False,
+                allowed_match_modes=["EXACT"],
+                allowed_intra_combiners=["OR", "AND"],
+            ),
+            description="Descriptor names (nested, facet scoped to keyword relationships)",
+            facet_key="descriptors",
+            facet_type="value",
+        ),
+        FieldDef(
             field_id="facet_ms_instruments",
             field_key="dataset.ms_instruments.name",
             target=Target.DATASET,

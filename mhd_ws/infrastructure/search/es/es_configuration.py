@@ -53,6 +53,7 @@ class LegacyElasticSearchConfiguration(ElasticsearchConfiguration):
             "project",
             "publications",
             "protocols",
+            "descriptors",
             "ms_instruments",
             "chromatography_instruments",
             "other_instruments",

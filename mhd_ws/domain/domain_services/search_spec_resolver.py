@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from mhd_ws.domain.entities.search.dtos import (
     ComparatorClauseDTO,
+    DescriptorClauseDTO,
     ParameterPairClauseDTO,
     SearchRequestDTO,
     TermClauseDTO,
 )
 from mhd_ws.domain.entities.search.index_search_spec import (
     ComparatorClauseSpec,
+    DescriptorClauseSpec,
     FieldClauseSpec,
     FieldRef,
     ParameterPairClauseSpec,
@@ -30,6 +32,8 @@ class SearchSpecResolver:
                 clauses.append(self._resolve_comparator_clause(clause))
             elif isinstance(clause, ParameterPairClauseDTO):
                 clauses.append(self._resolve_parameter_pair_clause(clause))
+            elif isinstance(clause, DescriptorClauseDTO):
+                clauses.append(self._resolve_descriptor_clause(clause))
         return SearchSpec(
             query_text=dto.query_text,
             inter_field_combiner=dto.inter_field_combiner,
@@ -77,6 +81,17 @@ class SearchSpecResolver:
             combine_values=clause.op,
             negated=clause.not_,
             include_facet=clause.include_facet,
+        )
+
+    @staticmethod
+    def _resolve_descriptor_clause(
+        clause: DescriptorClauseDTO,
+    ) -> DescriptorClauseSpec:
+        return DescriptorClauseSpec(
+            relationship=clause.relationship,
+            names=clause.names,
+            combine_names=clause.op,
+            negated=clause.not_,
         )
 
     def _lookup(self, field_id: str) -> FieldDef:

@@ -240,8 +240,12 @@ class AdvancedSearchGateway(AdvancedSearchPort):
                 facets[type_name] = FacetResponse(type="value", data=buckets)
                 continue
 
+            # Filtered nested agg (e.g. descriptors): nested → filtered → values → buckets
+            if "buckets" not in agg_data and "filtered" in agg_data:
+                buckets_raw = agg_data["filtered"].get("values", {}).get("buckets", [])
+                facet_type = "value"
             # Nested terms agg (e.g. instruments): no top-level "buckets"; inner "values"
-            if "buckets" not in agg_data and "values" in agg_data:
+            elif "buckets" not in agg_data and "values" in agg_data:
                 buckets_raw = agg_data["values"].get("buckets", [])
                 facet_type = "value"
             else:
