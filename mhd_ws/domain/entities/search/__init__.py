@@ -1,9 +1,3 @@
-from mhd_ws.domain.entities.search.types import (
-    ComparatorOp,
-    InterFieldCombiner,
-    IntraFieldCombiner,
-    MatchMode,
-)
 from mhd_ws.domain.entities.search.registries.models import (
     AllowedOperators,
     FieldCapability,
@@ -13,6 +7,12 @@ from mhd_ws.domain.entities.search.registries.models import (
     IndexCapabilitiesRegistry,
     JoinContract,
     NestedSpec,
+)
+from mhd_ws.domain.entities.search.types import (
+    ComparatorOp,
+    InterFieldCombiner,
+    IntraFieldCombiner,
+    MatchMode,
 )
 
 __all__ = [

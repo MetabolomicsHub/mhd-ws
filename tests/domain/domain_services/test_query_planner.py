@@ -2,7 +2,6 @@ import pytest
 
 from mhd_ws.domain.domain_services.query_planner import QueryPlanner
 from mhd_ws.domain.entities.search.index_search_spec import (
-    ComparatorClauseSpec,
     FieldRef,
     SearchSpec,
     Target,

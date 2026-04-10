@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 FAKE_ANNOUNCEMENT = {"mhd_identifier": "MHD000001", "profile_uri": "ms-profile.json"}
 FAKE_ANNOUNCEMENT_STR = json.dumps(FAKE_ANNOUNCEMENT)
 FAKE_SHA256 = hashlib.sha256(FAKE_ANNOUNCEMENT_STR.encode()).hexdigest()

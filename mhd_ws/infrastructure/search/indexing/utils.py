@@ -58,4 +58,7 @@ def load_json_file(path: Path) -> dict[str, Any]:
 
 def eprint(*args: Any, **kwargs: Any) -> None:
     """Print to stderr."""
-    print(*args, file=sys.stderr, **kwargs)
+    sep = kwargs.pop("sep", " ")
+    end = kwargs.pop("end", "\n")
+    sys.stderr.write(sep.join(str(arg) for arg in args) + end)
+    sys.stderr.flush()

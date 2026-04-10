@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import datetime
 from logging import getLogger
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Body, Depends, Query
-from fastapi.responses import JSONResponse
 from fastapi.openapi.models import Example
+from fastapi.responses import JSONResponse
 from pydantic import Field
 
 from mhd_ws.application.services.interfaces.advanced_search_port import (

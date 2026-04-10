@@ -7,6 +7,7 @@ from typing import Any
 from mhd_ws.application.services.interfaces.advanced_search_port import (
     AdvancedSearchPort,
 )
+from mhd_ws.domain.domain_services.query_planner import QueryPlanner
 from mhd_ws.domain.entities.search.index_search import (
     FacetBucket,
     FacetResponse,
@@ -19,7 +20,6 @@ from mhd_ws.domain.entities.search.index_search_spec import (
     ParameterPairClauseSpec,
     SearchSpec,
 )
-from mhd_ws.domain.entities.search.predicate_tree import AndExpr
 from mhd_ws.domain.entities.search.registries.models import (
     FieldRegistry,
     IndexCapabilitiesRegistry,
@@ -29,7 +29,6 @@ from mhd_ws.domain.entities.search.stages import (
     MetaboliteIdStage,
     QueryPlan,
 )
-from mhd_ws.domain.domain_services.query_planner import QueryPlanner
 from mhd_ws.infrastructure.search.es.es_configuration import (
     AdvancedSearchConfiguration,
 )

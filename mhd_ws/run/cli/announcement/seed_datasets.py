@@ -6,7 +6,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import click
 from sqlalchemy import select

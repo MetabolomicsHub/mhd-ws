@@ -20,16 +20,18 @@ from mhd_model.model.v0_1.announcement.validation.validator import (
 )
 from mhd_model.model.v0_1.dataset.validation.validator import MhdFileValidator
 from mhd_model.shared.model import ProfileEnabledDataset
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mhd_ws.application.decorators.async_task import async_task
-from mhd_ws.application.services.interfaces.async_task.async_task_service import AsyncTaskService
+from mhd_ws.application.services.interfaces.async_task.async_task_service import (
+    AsyncTaskService,
+)
 from mhd_ws.application.services.interfaces.cache_service import CacheService
-from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
-from mhd_ws.infrastructure.announcement.mhd_model_adapter import (
+from mhd_ws.application.use_cases.announcement_conversion import (
     convert_mhd_to_announcement,
 )
+from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
     AccessionType,
     AnnouncementFile,

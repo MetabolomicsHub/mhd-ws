@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
-
 from datetime import datetime
+from typing import Any
 
 from mhd_ws.domain.entities.search.predicate_tree import (
     AndExpr,

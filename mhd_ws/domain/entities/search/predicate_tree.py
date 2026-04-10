@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from mhd_ws.domain.entities.search.types import ComparatorOp
 
-
 PredicateKind = Literal["TERM_MATCH", "PHRASE_MATCH", "EXACT_MATCH", "RANGE", "PARAMETER_PAIR", "DESCRIPTOR", "CHARACTERISTIC_PAIR"]
 
 

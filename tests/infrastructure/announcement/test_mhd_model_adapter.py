@@ -2,23 +2,25 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from mhd_ws.infrastructure.announcement.mhd_model_adapter import (
+from mhd_ws.application.use_cases.announcement_conversion import (
     convert_mhd_to_announcement,
 )
-
 
 FAKE_ANNOUNCEMENT = {"mhd_identifier": "MHD000001", "title": "Test Dataset"}
 
 
 def _make_fake_create(fake_data):
     """Side effect that writes fake announcement JSON to the temp path."""
+
     def fake_create(mhd_file, mhd_file_url, announcement_file_path, **kwargs):
-        with open(announcement_file_path, "w") as f:
+        with Path(announcement_file_path).open("w") as f:
             json.dump(fake_data, f)
+
     return fake_create
 
 
@@ -28,7 +30,7 @@ class TestConvertMhdToAnnouncement:
         mhd_file_url = "https://example.com/dataset.mhd.json"
 
         with patch(
-            "mhd_ws.infrastructure.announcement.mhd_model_adapter.ms_create_announcement_file"
+            "mhd_ws.application.use_cases.announcement_conversion.ms_create_announcement_file"
         ) as mock_ms:
             mock_ms.side_effect = _make_fake_create(FAKE_ANNOUNCEMENT)
             result = convert_mhd_to_announcement(mhd_file, mhd_file_url, profile="ms")
@@ -44,7 +46,7 @@ class TestConvertMhdToAnnouncement:
         mhd_file_url = "https://example.com/legacy.mhd.json"
 
         with patch(
-            "mhd_ws.infrastructure.announcement.mhd_model_adapter.legacy_create_announcement_file"
+            "mhd_ws.application.use_cases.announcement_conversion.legacy_create_announcement_file"
         ) as mock_legacy:
             mock_legacy.side_effect = _make_fake_create(FAKE_ANNOUNCEMENT)
             result = convert_mhd_to_announcement(mhd_file, mhd_file_url, profile="legacy")
@@ -62,7 +64,7 @@ class TestConvertMhdToAnnouncement:
     def test_raises_if_converter_raises(self):
         """If the converter raises, the error propagates."""
         with patch(
-            "mhd_ws.infrastructure.announcement.mhd_model_adapter.ms_create_announcement_file"
+            "mhd_ws.application.use_cases.announcement_conversion.ms_create_announcement_file"
         ) as mock_ms:
             mock_ms.side_effect = RuntimeError("converter failed")
             with pytest.raises(RuntimeError, match="converter failed"):
