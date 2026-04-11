@@ -32,7 +32,7 @@ def upgrade() -> None:
     create_announcement_file_table(unique_identifier_seq)
     create_dataset_revision_table(unique_identifier_seq)
 
-    
+
 def downgrade() -> None:
     """Downgrade schema."""
     e_identifier_seq = sa.schema.Sequence("unique_identifier_seq")

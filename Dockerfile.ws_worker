@@ -8,9 +8,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY . .
-RUN uv sync --locked --group=test --group=dev
-
+COPY pyproject.toml pyproject.toml
+COPY uv.lock uv.lock
+COPY README.md README.md
+RUN uv sync --locked --group=dev
 ENV PYTHONPATH=/app
-
-CMD ["uv", "run", "--no-project",  "/app/mhd_ws/run/worker/mhd/main.py"]
+COPY . .
+CMD ["python", "/app/mhd_ws/run/worker/mhd/main.py"]

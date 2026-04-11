@@ -51,7 +51,7 @@ lint:
   - echo "MTBLS_NFS_USER_GROUP1_ID $MTBLS_NFS_USER_GROUP1_ID"
   - echo "MTBLS_NFS_USER_GROUP2_ID $MTBLS_NFS_USER_GROUP2_ID"
   - echo "MTBLS_NFS_USER_ID $MTBLS_NFS_USER_ID"
-  - uv sync --locked --group test --group dev
+  - uv sync --locked --group dev
   - uv run pre-commit run --all-files
   - uv run ruff check
   - uv run ruff format --check
