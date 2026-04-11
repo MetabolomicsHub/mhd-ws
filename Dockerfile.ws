@@ -9,10 +9,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY . .
-RUN uv sync --locked --group=test --group=dev
-
+COPY pyproject.toml pyproject.toml
+COPY pyproject.lock pyproject.lock
+COPY README.md README.md
+RUN uv sync --locked --group=dev
 ENV PYTHONPATH=/app
 
+COPY . .
 EXPOSE 7070
-CMD ["uv", "run", "--no-project",  "/app/mhd_ws/run/rest_api/mhd/main.py"]
+CMD ["python", "/app/mhd_ws/run/rest_api/mhd/main.py"]
