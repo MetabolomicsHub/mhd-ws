@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 COPY pyproject.toml pyproject.toml
-COPY pyproject.lock pyproject.lock
+COPY uv.lock uv.lock
 COPY README.md README.md
 RUN uv sync --locked --group=dev
 ENV PYTHONPATH=/app
