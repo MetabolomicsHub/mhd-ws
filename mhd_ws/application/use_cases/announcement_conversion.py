@@ -7,14 +7,35 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from mhd_model.convertors.announcement.v0_1.legacy.mhd2announce import (
-    create_announcement_file as legacy_create_announcement_file,
+from mhd_model.convertors.announcement.v0_1.legacy import (
+    mhd2announce as legacy_mhd2announce,
 )
-from mhd_model.convertors.announcement.v0_1.ms.mhd2announce import (
-    create_announcement_file as ms_create_announcement_file,
-)
+from mhd_model.convertors.announcement.v0_1.ms import mhd2announce as ms_mhd2announce
 
 _VALID_PROFILES = ("ms", "legacy")
+
+
+def _resolve_converter(module: Any, *names: str) -> Any:
+    for name in names:
+        converter = getattr(module, name, None)
+        if converter is not None:
+            return converter
+
+    raise ImportError(
+        f"Could not find any of {names!r} in converter module {module.__name__!r}"
+    )
+
+
+ms_create_announcement_file = _resolve_converter(
+    ms_mhd2announce,
+    "create_announcement_file",
+    "create_ms_announcement_file",
+)
+legacy_create_announcement_file = _resolve_converter(
+    legacy_mhd2announce,
+    "create_announcement_file",
+    "create_legacy_announcement_file",
+)
 
 
 def convert_mhd_to_announcement(
