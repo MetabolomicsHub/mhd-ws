@@ -12,7 +12,7 @@ from mhd_ws.domain.entities.search.registries.models import (
 
 def build_index_capabilities(
     dataset_index: str = "dataset_legacy_v1",
-    metabolite_index: str = "metabolite_legacy_v1",
+    metabolite_index: str = "metabolite_ms_v1",
     dataset_api_key: str | None = "dataset_legacy",
     metabolite_api_key: str | None = "metabolite",
     dataset_ms_index: str = "dataset_ms_v1",

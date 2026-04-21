@@ -201,3 +201,5 @@ cython_debug/
 .cursorindexingignore
 
 .claude/
+.codex/
+mhd-ws-config-*.yaml

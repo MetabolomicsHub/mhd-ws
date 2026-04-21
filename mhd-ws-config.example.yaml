@@ -30,7 +30,7 @@ gateways:
         indices:
           dataset_legacy: dataset_legacy_v1
           dataset_ms: dataset_ms_v1
-          metabolite: metabolite_legacy_v1
+          metabolite: metabolite_ms_v1
         username: elasticsearch_user
         password: elasticsearch_password
         verify_certs: true

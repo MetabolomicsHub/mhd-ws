@@ -47,12 +47,19 @@ class ElasticsearchClient:
             self._config = ElasticsearchClientConfig.model_validate(config)
         self._clients: Dict[Optional[str], AsyncElasticsearch] = {}
 
+    def _uses_basic_auth(self) -> bool:
+        return bool(self._config.username or self._config.password)
+
     def _configured_api_key_names(self) -> List[Optional[str]]:
+        if self._uses_basic_auth():
+            return [None]
         if self._config.api_keys:
             return list(self._config.api_keys.keys())
         return [None]
 
     def _effective_api_key_name(self, api_key_name: Optional[str]) -> Optional[str]:
+        if self._uses_basic_auth():
+            return None
         if api_key_name is not None:
             return api_key_name
         if self._config.api_keys:
@@ -70,6 +77,43 @@ class ElasticsearchClient:
         if self._config.api_key:
             return self._config.api_key
         return None
+
+    def _describe_auth_mode(self, api_key_name: Optional[str]) -> str:
+        if self._uses_basic_auth():
+            return "basic_auth"
+        if self._resolve_api_key_value(api_key_name):
+            return "api_key"
+        return "none"
+
+    def _raise_api_error_with_context(
+        self,
+        exc: Exception,
+        *,
+        operation: str,
+        api_key_name: Optional[str] = None,
+        index: Optional[str] = None,
+    ) -> None:
+        status = getattr(exc, "status_code", None)
+        index_context = f" for index {index!r}" if index else ""
+        auth_mode = self._describe_auth_mode(api_key_name)
+
+        if status == 401:
+            raise RuntimeError(
+                f"Elasticsearch authentication failed during {operation}{index_context} "
+                f"(HTTP 401). The Elasticsearch endpoint is reachable, but the configured "
+                f"{auth_mode} credentials were rejected. Check the active username/password "
+                f"or API key in your config/secrets."
+            ) from exc
+
+        if status == 403:
+            raise RuntimeError(
+                f"Elasticsearch authorization failed during {operation}{index_context} "
+                f"(HTTP 403). The configured {auth_mode} credentials authenticated but do "
+                f"not have permission for this action."
+            ) from exc
+
+        if isinstance(exc, Exception):
+            raise exc
 
     async def start(self, api_key_name: Optional[str] = None) -> None:
         target_keys = (
@@ -95,12 +139,7 @@ class ElasticsearchClient:
                 )
             elif api_key_value:
                 auth_kwargs["api_key"] = api_key_value
-            if "api_key" in auth_kwargs:
-                auth_mode = "api_key"
-            elif "basic_auth" in auth_kwargs:
-                auth_mode = "basic_auth"
-            else:
-                auth_mode = "none"
+            auth_mode = self._describe_auth_mode(key_name)
             logger.info(
                 "Connecting to Elasticsearch hosts: %s (auth=%s, timeout=%s, verify_certs=%s)",
                 self._config.hosts,
@@ -118,9 +157,11 @@ class ElasticsearchClient:
                 )
                 ok = await es.ping()
                 if not ok:
-                    # Likely a restricted API key without cluster privileges; keep client and proceed.
                     logger.warning(
-                        "Elasticsearch ping failed; proceeding anyway (restricted auth or connectivity issue)."
+                        "Elasticsearch ping returned false while using %s. "
+                        "If subsequent requests fail with HTTP 401, the credentials are invalid. "
+                        "If they fail with HTTP 403, the credentials are authenticated but lack privileges.",
+                        auth_mode,
                     )
                 self._clients[key_name] = es
                 if ok:
@@ -179,6 +220,13 @@ class ElasticsearchClient:
         started = time.monotonic()
         try:
             return await client.search(index=index, body=body)
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="search",
+                api_key_name=api_key_name,
+                index=index,
+            )
         finally:
             elapsed_ms = int((time.monotonic() - started) * 1000)
             effective_key = api_key_name or self._effective_api_key_name(api_key_name)
@@ -201,31 +249,70 @@ class ElasticsearchClient:
         self, index, body: Dict[str, Any], api_key_name: Optional[str] = None
     ) -> Dict[str, Any]:
         client = await self._get_started_client(api_key_name)
-        return await client.msearch(index=index, body=body)
+        try:
+            return await client.msearch(index=index, body=body)
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="multi-search",
+                api_key_name=api_key_name,
+                index=index,
+            )
 
     async def count(
         self, index, body: Optional[Dict[str, Any]], api_key_name: Optional[str] = None
     ) -> int:
         client = await self._get_started_client(api_key_name)
-        resp = await client.count(index=index, body=body or {})
+        try:
+            resp = await client.count(index=index, body=body or {})
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="count",
+                api_key_name=api_key_name,
+                index=index,
+            )
         return int(resp.get("count", 0))
 
     async def get_info(self, api_key_name: Optional[str] = None) -> Dict[str, Any]:
         client = await self._get_started_client(api_key_name)
-        return await client.info()
+        try:
+            return await client.info()
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="cluster info request",
+                api_key_name=api_key_name,
+            )
 
     async def get_mapping(
         self, index: str, api_key_name: Optional[str] = None
     ) -> Dict[str, Any]:
         client = await self._get_started_client(api_key_name)
-        response = await client.indices.get_mapping(index=index)
+        try:
+            response = await client.indices.get_mapping(index=index)
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="mapping lookup",
+                api_key_name=api_key_name,
+                index=index,
+            )
         return response.body
 
     async def index_exists(
         self, index: str, api_key_name: Optional[str] = None
     ) -> bool:
         client = await self._get_started_client(api_key_name)
-        return await client.indices.exists(index=index)
+        try:
+            return await client.indices.exists(index=index)
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="index existence check",
+                api_key_name=api_key_name,
+                index=index,
+            )
 
     async def create_index(
         self, index: str, mapping: dict, api_key_name: Optional[str] = None
@@ -235,13 +322,27 @@ class ElasticsearchClient:
             await client.indices.create(index=index, **mapping)
             logger.info("Created index: %s", index)
         except ApiError as e:
+            self._raise_api_error_with_context(
+                e,
+                operation="index creation",
+                api_key_name=api_key_name,
+                index=index,
+            )
             raise RuntimeError(f"Index creation failed for {index}: {e}") from e
 
     async def delete_index(
         self, index: str, api_key_name: Optional[str] = None
     ) -> None:
         client = await self._get_started_client(api_key_name)
-        await client.indices.delete(index=index)
+        try:
+            await client.indices.delete(index=index)
+        except ApiError as exc:
+            self._raise_api_error_with_context(
+                exc,
+                operation="index deletion",
+                api_key_name=api_key_name,
+                index=index,
+            )
         logger.info("Deleted index: %s", index)
 
     async def ensure_index_exists(
