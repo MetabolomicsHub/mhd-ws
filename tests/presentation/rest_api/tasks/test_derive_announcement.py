@@ -1,4 +1,5 @@
 """Tests for derive_announcement() core function."""
+
 from __future__ import annotations
 
 import hashlib
@@ -13,7 +14,9 @@ FAKE_SHA256 = hashlib.sha256(FAKE_ANNOUNCEMENT_STR.encode()).hexdigest()
 FAKE_MHD_JSON = {"mhd_identifier": "MHD000001", "title": "Test"}
 
 
-def _make_dataset(accession="MHD000001", accession_type="mhd", dataset_id=1, revision=0):
+def _make_dataset(
+    accession="MHD000001", accession_type="mhd", dataset_id=1, revision=0
+):
     ds = MagicMock()
     ds.id = dataset_id
     ds.accession = accession
@@ -41,8 +44,12 @@ class TestDeriveAnnouncement:
 
         session.execute = AsyncMock(
             side_effect=[
-                MagicMock(scalar_one_or_none=MagicMock(return_value=dataset)),  # profile lookup
-                MagicMock(scalar_one_or_none=MagicMock(return_value=dataset)),  # locked lookup
+                MagicMock(
+                    scalar_one_or_none=MagicMock(return_value=dataset)
+                ),  # profile lookup
+                MagicMock(
+                    scalar_one_or_none=MagicMock(return_value=dataset)
+                ),  # locked lookup
                 MagicMock(scalar=MagicMock(return_value=None)),  # max revision = None
             ]
         )
@@ -79,7 +86,9 @@ class TestDeriveAnnouncement:
         assert result["success"] is True
         session.add.assert_called()
         session.commit.assert_called_once()
-        cache_service.delete_key.assert_called_once_with("announcement-file:MHD000001:latest")
+        cache_service.delete_key.assert_called_once_with(
+            "announcement-file:MHD000001:latest"
+        )
 
     @pytest.mark.asyncio
     async def test_skips_cache_invalidation_when_cache_service_is_none(self):
@@ -153,9 +162,13 @@ class TestDeriveAnnouncement:
 
         session.execute = AsyncMock(
             side_effect=[
-                MagicMock(scalar_one_or_none=MagicMock(return_value=dataset)),  # profile lookup
+                MagicMock(
+                    scalar_one_or_none=MagicMock(return_value=dataset)
+                ),  # profile lookup
                 MagicMock(scalar_one_or_none=MagicMock(return_value=dataset)),  # locked
-                MagicMock(scalar_one_or_none=MagicMock(return_value=latest_revision)),  # latest revision
+                MagicMock(
+                    scalar_one_or_none=MagicMock(return_value=latest_revision)
+                ),  # latest revision
                 MagicMock(scalar=MagicMock(return_value=FAKE_SHA256)),  # same sha256
             ]
         )

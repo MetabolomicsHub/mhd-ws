@@ -53,9 +53,9 @@ def _ensure_cli_logging(
     if not logging_cfg and secrets:
         logging_cfg = ((secrets.get("run") or {}).get("cli") or {}).get("logging")
         if not logging_cfg:
-            logging_cfg = (
-                (secrets.get("run") or {}).get("mhd_ws") or {}
-            ).get("logging")
+            logging_cfg = ((secrets.get("run") or {}).get("mhd_ws") or {}).get(
+                "logging"
+            )
     if logging_cfg:
         cli_cfg["logging"] = logging_cfg
         run_cfg["cli"] = cli_cfg
@@ -154,15 +154,19 @@ async def _handle_upload(
     try:
         mapping_path = Path(mapping_file)
         if not mapping_path.is_file():
-            raise click.ClickException(
-                f"mapping file does not exist: {mapping_path}"
-            )
+            raise click.ClickException(f"mapping file does not exist: {mapping_path}")
         mapping = load_json_file(mapping_path)
         await es_client.ensure_index_exists(
-            index_name, mapping, recreate=recreate_index, api_key_name="dataset_ms",
+            index_name,
+            mapping,
+            recreate=recreate_index,
+            api_key_name="dataset_ms",
         )
         n = await es_client.bulk_upload(
-            docs, index_name=index_name, op_type=op_type, batch_size=batch_size,
+            docs,
+            index_name=index_name,
+            op_type=op_type,
+            batch_size=batch_size,
             api_key_name="dataset_ms",
         )
         eprint(f"Uploaded {n} dataset docs to index {index_name}")
@@ -175,7 +179,9 @@ async def _handle_upload(
                 )
             metab_mapping = load_json_file(metab_mapping_path)
             await es_client.ensure_index_exists(
-                metabolite_index, metab_mapping, recreate=recreate_index,
+                metabolite_index,
+                metab_mapping,
+                recreate=recreate_index,
                 api_key_name="metabolite",
             )
             n_met = await es_client.bulk_upload(
@@ -203,9 +209,7 @@ def handle_output(
 ) -> None:
     if fmt == "json-dir":
         if not json_dir:
-            raise click.ClickException(
-                "--json-dir is required when --format json-dir"
-            )
+            raise click.ClickException("--json-dir is required when --format json-dir")
         out_dir = Path(json_dir)
         n = write_json_dir(out_dir, docs)
         eprint(f"Wrote {n} dataset JSON files to {out_dir}")
@@ -247,45 +251,82 @@ def handle_output(
 
 @click.command(name="index")
 @click.argument("input_dir", type=click.Path(exists=True, file_okay=False))
-@click.option("--config-file", type=click.Path(exists=True), default=None,
-              help="YAML config file (for ES connection when --upload is set)")
-@click.option("--secrets-file", type=click.Path(exists=True), default=None,
-              help="YAML secrets file")
-@click.option("--pattern", default="*.mhd.json",
-              help="Glob pattern within input_dir")
-@click.option("--format", "fmt", type=click.Choice(["bulk", "jsonl", "json-dir"]),
-              default="bulk", help="Output format")
-@click.option("--out", default="-",
-              help="Output file path, or '-' for stdout (bulk/jsonl only)")
-@click.option("--json-dir", default=None,
-              help="Output directory for --format json-dir")
-@click.option("--index", "index_name", default=_default_index_name,
-              help="ES index name for dataset documents")
-@click.option("--metabolite-index", default=_default_metabolite_index_name,
-              help="ES index name for metabolite documents")
-@click.option("--mapping-file", default="resources/es/mappings/ms_mapping.json",
-              help="Index mapping JSON for dataset index")
-@click.option("--metabolite-mapping-file",
-              default="resources/es/mappings/metabolite_mapping.json",
-              help="Index mapping JSON for metabolite index")
-@click.option("--upload", is_flag=True,
-              help="Upload to Elasticsearch using the Bulk API")
-@click.option("--dry-run", is_flag=True,
-              help="Do not write docs; only print summary/errors")
-@click.option("--batch-size", type=int, default=500,
-              help="Bulk upload batch size")
-@click.option("--recreate-index", is_flag=True,
-              help="Delete and recreate the index before upload")
-@click.option("--skip-metabolites", is_flag=True,
-              help="Skip building and indexing metabolite documents")
-@click.option("--max-files", type=int, default=0,
-              help="Process at most N files (0 = no limit)")
-@click.option("--log-facets", is_flag=True,
-              help="Log facet values per document to stderr")
-@click.option("--log-facet-keys", default="diseases,sample_types",
-              help="Comma-separated facet keys to log with --log-facets")
-@click.option("--log-facet-values", is_flag=True,
-              help="Log full facet values (default logs counts only)")
+@click.option(
+    "--config-file",
+    type=click.Path(exists=True),
+    default=None,
+    help="YAML config file (for ES connection when --upload is set)",
+)
+@click.option(
+    "--secrets-file",
+    type=click.Path(exists=True),
+    default=None,
+    help="YAML secrets file",
+)
+@click.option("--pattern", default="*.mhd.json", help="Glob pattern within input_dir")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["bulk", "jsonl", "json-dir"]),
+    default="bulk",
+    help="Output format",
+)
+@click.option(
+    "--out", default="-", help="Output file path, or '-' for stdout (bulk/jsonl only)"
+)
+@click.option("--json-dir", default=None, help="Output directory for --format json-dir")
+@click.option(
+    "--index",
+    "index_name",
+    default=_default_index_name,
+    help="ES index name for dataset documents",
+)
+@click.option(
+    "--metabolite-index",
+    default=_default_metabolite_index_name,
+    help="ES index name for metabolite documents",
+)
+@click.option(
+    "--mapping-file",
+    default="resources/es/mappings/ms_mapping.json",
+    help="Index mapping JSON for dataset index",
+)
+@click.option(
+    "--metabolite-mapping-file",
+    default="resources/es/mappings/metabolite_mapping.json",
+    help="Index mapping JSON for metabolite index",
+)
+@click.option(
+    "--upload", is_flag=True, help="Upload to Elasticsearch using the Bulk API"
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Do not write docs; only print summary/errors"
+)
+@click.option("--batch-size", type=int, default=500, help="Bulk upload batch size")
+@click.option(
+    "--recreate-index", is_flag=True, help="Delete and recreate the index before upload"
+)
+@click.option(
+    "--skip-metabolites",
+    is_flag=True,
+    help="Skip building and indexing metabolite documents",
+)
+@click.option(
+    "--max-files", type=int, default=0, help="Process at most N files (0 = no limit)"
+)
+@click.option(
+    "--log-facets", is_flag=True, help="Log facet values per document to stderr"
+)
+@click.option(
+    "--log-facet-keys",
+    default="diseases,sample_types",
+    help="Comma-separated facet keys to log with --log-facets",
+)
+@click.option(
+    "--log-facet-values",
+    is_flag=True,
+    help="Log full facet values (default logs counts only)",
+)
 def index_datasets(  # noqa: PLR0913
     input_dir: str,
     config_file: str | None,
@@ -316,9 +357,7 @@ def index_datasets(  # noqa: PLR0913
         files = files[:max_files]
 
     if not files:
-        raise click.ClickException(
-            f"no files matched {pattern} in {input_path}"
-        )
+        raise click.ClickException(f"no files matched {pattern} in {input_path}")
 
     facet_keys = (
         [k.strip() for k in log_facet_keys.split(",") if k.strip()]
@@ -338,9 +377,7 @@ def index_datasets(  # noqa: PLR0913
 
     if upload:
         if not config_file:
-            raise click.ClickException(
-                "--config-file is required when --upload is set"
-            )
+            raise click.ClickException("--config-file is required when --upload is set")
         container = IndexingCliContainer()
         container.config.from_yaml(config_file)
         if secrets_file:

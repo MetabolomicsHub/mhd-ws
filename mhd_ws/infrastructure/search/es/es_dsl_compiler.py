@@ -30,17 +30,13 @@ class EsDslCompiler:
     def compile_query(self, expr: BoolExpr) -> dict[str, Any]:
         return self._compile(expr)
 
-    def compile_pagination(
-        self, page_current: int, page_size: int
-    ) -> dict[str, Any]:
+    def compile_pagination(self, page_current: int, page_size: int) -> dict[str, Any]:
         return {
             "from": (page_current - 1) * page_size,
             "size": page_size,
         }
 
-    def compile_sort(
-        self, field: str, direction: str
-    ) -> list[dict[str, Any]]:
+    def compile_sort(self, field: str, direction: str) -> list[dict[str, Any]]:
         return [{field: {"order": direction}}]
 
     def compile_facet_aggs(
@@ -223,11 +219,22 @@ class EsDslCompiler:
         if not pred.values:
             inner: dict[str, Any] = {"bool": {"filter": [type_filter]}}
         elif len(pred.values) == 1:
-            inner = {"bool": {"filter": [type_filter, {"term": {values_path: pred.values[0]}}]}}
+            inner = {
+                "bool": {
+                    "filter": [type_filter, {"term": {values_path: pred.values[0]}}]
+                }
+            }
         elif pred.combine_values == "AND":
-            inner = {"bool": {"filter": [type_filter] + [{"term": {values_path: v}} for v in pred.values]}}
+            inner = {
+                "bool": {
+                    "filter": [type_filter]
+                    + [{"term": {values_path: v}} for v in pred.values]
+                }
+            }
         else:
-            inner = {"bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}}
+            inner = {
+                "bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}
+            }
 
         return {"nested": {"path": "parameter_groups", "query": inner}}
 
@@ -246,34 +253,54 @@ class EsDslCompiler:
         if not pred.names:
             inner: dict[str, Any] = {"bool": {"filter": [rel_filter]}}
         elif len(pred.names) == 1:
-            inner = {"bool": {"filter": [rel_filter, {"term": {name_path: pred.names[0]}}]}}
+            inner = {
+                "bool": {"filter": [rel_filter, {"term": {name_path: pred.names[0]}}]}
+            }
         elif pred.combine_names == "AND":
             inner = {
                 "bool": {
-                    "filter": [rel_filter] + [{"term": {name_path: n}} for n in pred.names]
+                    "filter": [rel_filter]
+                    + [{"term": {name_path: n}} for n in pred.names]
                 }
             }
         else:
-            inner = {"bool": {"filter": [rel_filter, {"terms": {name_path: pred.names}}]}}
+            inner = {
+                "bool": {"filter": [rel_filter, {"terms": {name_path: pred.names}}]}
+            }
 
         return {"nested": {"path": "descriptors", "query": inner}}
 
-    def _compile_characteristic_pair(self, pred: CharacteristicPairPredicate) -> dict[str, Any]:
+    def _compile_characteristic_pair(
+        self, pred: CharacteristicPairPredicate
+    ) -> dict[str, Any]:
         type_cap = self._caps.get_field("dataset.characteristic_groups.type_name")
         values_cap = self._caps.get_field("dataset.characteristic_groups.values")
         type_path = type_cap.es_path if type_cap else "characteristic_groups.type_name"
-        values_path = values_cap.es_path if values_cap else "characteristic_groups.values"
+        values_path = (
+            values_cap.es_path if values_cap else "characteristic_groups.values"
+        )
 
         type_filter: dict[str, Any] = {"term": {type_path: pred.type_name}}
 
         if not pred.values:
             inner: dict[str, Any] = {"bool": {"filter": [type_filter]}}
         elif len(pred.values) == 1:
-            inner = {"bool": {"filter": [type_filter, {"term": {values_path: pred.values[0]}}]}}
+            inner = {
+                "bool": {
+                    "filter": [type_filter, {"term": {values_path: pred.values[0]}}]
+                }
+            }
         elif pred.combine_values == "AND":
-            inner = {"bool": {"filter": [type_filter] + [{"term": {values_path: v}} for v in pred.values]}}
+            inner = {
+                "bool": {
+                    "filter": [type_filter]
+                    + [{"term": {values_path: v}} for v in pred.values]
+                }
+            }
         else:
-            inner = {"bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}}
+            inner = {
+                "bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}
+            }
 
         return {"nested": {"path": "characteristic_groups", "query": inner}}
 
@@ -284,7 +311,9 @@ class EsDslCompiler:
         type_cap = self._caps.get_field("dataset.characteristic_groups.type_name")
         values_cap = self._caps.get_field("dataset.characteristic_groups.values")
         type_path = type_cap.es_path if type_cap else "characteristic_groups.type_name"
-        values_path = values_cap.es_path if values_cap else "characteristic_groups.values"
+        values_path = (
+            values_cap.es_path if values_cap else "characteristic_groups.values"
+        )
 
         aggs: dict[str, Any] = {}
         for type_name in type_names:

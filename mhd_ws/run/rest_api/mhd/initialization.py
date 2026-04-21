@@ -21,7 +21,9 @@ async def init_application(  # noqa: PLR0913
     database_client: DatabaseClient = Provide["gateways.database_client"],
     cache_service: CacheService = Provide["services.cache_service"],
     async_task_service: AsyncTaskService = Provide["services.async_task_service"],
-    elasticsearch_client: ElasticsearchClient = Provide["gateways.elasticsearch_client"],
+    elasticsearch_client: ElasticsearchClient = Provide[
+        "gateways.elasticsearch_client"
+    ],
     # user_read_repository: UserReadRepository = Provide[
     #     "repositories.user_read_repository"
     # ],

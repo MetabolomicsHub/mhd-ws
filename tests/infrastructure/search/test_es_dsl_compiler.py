@@ -50,7 +50,9 @@ class TestLeafPredicates:
         result = dataset_compiler.compile_query(pred)
         assert result == {"match_phrase": {"study.title": "breast cancer"}}
 
-    def test_exact_match_uses_exact_es_path(self, dataset_compiler: EsDslCompiler) -> None:
+    def test_exact_match_uses_exact_es_path(
+        self, dataset_compiler: EsDslCompiler
+    ) -> None:
         pred = ExactMatchPredicate(field_key="dataset.title", value="My Study")
         result = dataset_compiler.compile_query(pred)
         assert result == {"term": {"study.title.keyword": "My Study"}}
@@ -80,9 +82,7 @@ class TestLeafPredicates:
 
 class TestNestedWrapping:
     def test_nested_field_wrapped(self, dataset_compiler: EsDslCompiler) -> None:
-        pred = TermMatchPredicate(
-            field_key="dataset.people.full_name", value="John"
-        )
+        pred = TermMatchPredicate(field_key="dataset.people.full_name", value="John")
         result = dataset_compiler.compile_query(pred)
         assert result == {
             "nested": {
@@ -113,9 +113,7 @@ class TestNestedWrapping:
         assert result == {
             "nested": {
                 "path": "metabolite.identifiers",
-                "query": {
-                    "term": {"metabolite.identifiers.accession": "HMDB0000122"}
-                },
+                "query": {"term": {"metabolite.identifiers.accession": "HMDB0000122"}},
             }
         }
 
@@ -161,11 +159,11 @@ class TestBooleanComposition:
             child=TermMatchPredicate(field_key="dataset.title", value="cancer")
         )
         result = dataset_compiler.compile_query(expr)
-        assert result == {
-            "bool": {"must_not": [{"match": {"study.title": "cancer"}}]}
-        }
+        assert result == {"bool": {"must_not": [{"match": {"study.title": "cancer"}}]}}
 
-    def test_empty_and_produces_match_all(self, dataset_compiler: EsDslCompiler) -> None:
+    def test_empty_and_produces_match_all(
+        self, dataset_compiler: EsDslCompiler
+    ) -> None:
         expr = AndExpr(children=[])
         result = dataset_compiler.compile_query(expr)
         assert result == {"match_all": {}}
@@ -186,9 +184,7 @@ class TestFacetAggregations:
         self, ms_dataset_compiler: EsDslCompiler, facet_fields: list
     ) -> None:
         aggs = ms_dataset_compiler.compile_facet_aggs(facet_fields, facet_size=10)
-        assert aggs["organisms"] == {
-            "terms": {"field": "facets.organisms", "size": 10}
-        }
+        assert aggs["organisms"] == {"terms": {"field": "facets.organisms", "size": 10}}
 
     def test_range_facet_structure(
         self, ms_dataset_compiler: EsDslCompiler, facet_fields: list
@@ -200,9 +196,7 @@ class TestFacetAggregations:
 
 
 class TestCompositeAgg:
-    def test_metabolite_composite_agg(
-        self, metabolite_compiler: EsDslCompiler
-    ) -> None:
+    def test_metabolite_composite_agg(self, metabolite_compiler: EsDslCompiler) -> None:
         result = metabolite_compiler.compile_metabolite_composite_agg(
             "dataset_id", page_size=500
         )
@@ -210,9 +204,7 @@ class TestCompositeAgg:
             "dataset_ids": {
                 "composite": {
                     "size": 500,
-                    "sources": [
-                        {"dataset_id": {"terms": {"field": "dataset_id"}}}
-                    ],
+                    "sources": [{"dataset_id": {"terms": {"field": "dataset_id"}}}],
                 }
             }
         }

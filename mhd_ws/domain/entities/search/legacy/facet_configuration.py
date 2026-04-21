@@ -27,7 +27,9 @@ class RangeFacetConfig(FacetConfig):
                     "key": str(year),
                 }
             )
-        ranges.append({"to": f"{current_year - 19}-01-01", "key": f"Before {current_year - 19}"})
+        ranges.append(
+            {"to": f"{current_year - 19}-01-01", "key": f"Before {current_year - 19}"}
+        )
         return ranges
 
 

@@ -33,7 +33,6 @@ from mhd_ws.application.use_cases.announcement_conversion import (
 )
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
-    AccessionType,
     AnnouncementFile,
     Dataset,
     DatasetRevision,
@@ -558,21 +557,21 @@ async def derive_announcement(
             result = await session.execute(stmt)
             db_dataset = result.scalar_one_or_none()
             if db_dataset is None:
-                return {"success": False, "message": f"Dataset {accession!r} not found in database."}
-            profile = (
-                "legacy"
-                if db_dataset.accession_type in (AccessionType.LEGACY, AccessionType.TEST_LEGACY)
-                else "ms"
-            )
+                return {
+                    "success": False,
+                    "message": f"Dataset {accession!r} not found in database.",
+                }
 
         # Step 3: Convert mhd.json to announcement
         try:
-            announcement_json = convert_mhd_to_announcement(mhd_file_json, mhd_file_url, profile=profile)
+            announcement_json = convert_mhd_to_announcement(mhd_file_json, mhd_file_url)
         except Exception as e:
             return {"success": False, "message": f"Conversion failed: {e}"}
 
     # Step 4: Sha256 dedup + store
-    announcement_sha256 = hashlib.sha256(json.dumps(announcement_json).encode()).hexdigest()
+    announcement_sha256 = hashlib.sha256(
+        json.dumps(announcement_json).encode()
+    ).hexdigest()
 
     async with database_client.session() as a_session:
         try:
@@ -593,7 +592,10 @@ async def derive_announcement(
 
             if db_dataset is None:
                 await session.rollback()
-                return {"success": False, "message": f"Dataset {accession!r} not found in database."}
+                return {
+                    "success": False,
+                    "message": f"Dataset {accession!r} not found in database.",
+                }
 
             if db_dataset.revision > 0:
                 stmt = select(DatasetRevision).where(
@@ -609,10 +611,15 @@ async def derive_announcement(
                     result = await session.execute(stmt)
                     existing_sha256 = result.scalar()
                     if existing_sha256 == announcement_sha256:
-                        return {"success": False, "message": f"Announcement for {accession} is unchanged."}
+                        return {
+                            "success": False,
+                            "message": f"Announcement for {accession} is unchanged.",
+                        }
 
             # Step 5: Determine URIs
-            profile_enabled_dataset = ProfileEnabledDataset.model_validate(announcement_json)
+            profile_enabled_dataset = ProfileEnabledDataset.model_validate(
+                announcement_json
+            )
             schema_uri = (
                 profile_enabled_dataset.schema_name
                 or SUPPORTED_SCHEMA_MAP.schemas[SUPPORTED_SCHEMA_MAP.default_schema_uri]
@@ -675,7 +682,10 @@ async def derive_announcement(
         await cache_service.delete_key(f"announcement-file:{accession}:latest")
 
     # Step 8: Return success
-    return {"success": True, "message": f"Announcement derived as revision {new_revision}."}
+    return {
+        "success": True,
+        "message": f"Announcement derived as revision {new_revision}.",
+    }
 
 
 @async_task(app_name="mhd", queue="submission")

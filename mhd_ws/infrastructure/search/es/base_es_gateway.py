@@ -145,11 +145,17 @@ class BaseElasticSearchGateway(SearchPort):
         for name, agg_data in aggs.items():
             buckets_raw = agg_data.get("buckets", [])
             buckets = [
-                FacetBucket(value=b.get("key_as_string", str(b["key"])), count=b["doc_count"])
+                FacetBucket(
+                    value=b.get("key_as_string", str(b["key"])), count=b["doc_count"]
+                )
                 for b in buckets_raw
                 if b.get("doc_count", 0) > 0
             ]
-            facet_type = "range" if any("from" in b or "to" in b for b in buckets_raw) else "value"
+            facet_type = (
+                "range"
+                if any("from" in b or "to" in b for b in buckets_raw)
+                else "value"
+            )
             facets[name] = FacetResponse(type=facet_type, data=buckets)
         return facets
 

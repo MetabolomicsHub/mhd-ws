@@ -1,4 +1,5 @@
 """DI container for the announcement derivation CLI command."""
+
 from __future__ import annotations
 
 from logging import config as logging_config

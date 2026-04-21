@@ -1,4 +1,5 @@
 """CLI command for loading pre-existing announcement files directly into Postgres."""
+
 from __future__ import annotations
 
 import asyncio
@@ -109,7 +110,9 @@ def load_announcement(
     if not announcement_file_path and not announcement_dir:
         raise click.ClickException("Provide either --announcement-file or --dir.")
     if announcement_file_path and announcement_dir:
-        raise click.ClickException("--announcement-file and --dir are mutually exclusive.")
+        raise click.ClickException(
+            "--announcement-file and --dir are mutually exclusive."
+        )
 
     # Set up DI container
     container = AnnouncementCliContainer()
@@ -131,6 +134,7 @@ def load_announcement(
         if not files:
             raise click.ClickException(f"No *.json files found in {announcement_dir}")
         eprint(f"Processing {len(files)} file(s) from {announcement_dir} ...")
+
         async def _run_dir() -> tuple[int, int]:
             ok = err = 0
             for f in files:
@@ -150,6 +154,7 @@ def load_announcement(
         p = Path(announcement_file_path)
         data = _load_json(p)
         acc = _get_accession(data, p)
+
         async def _run_one() -> bool:
             return await _run_load(acc, data, reason, db_client)
 

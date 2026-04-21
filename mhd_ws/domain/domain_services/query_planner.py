@@ -38,7 +38,14 @@ class QueryPlanner:
         metabolite_clauses: list[FieldClauseSpec] = []
 
         for clause in spec.clauses:
-            if isinstance(clause, (ParameterPairClauseSpec, DescriptorClauseSpec, CharacteristicPairClauseSpec)):
+            if isinstance(
+                clause,
+                (
+                    ParameterPairClauseSpec,
+                    DescriptorClauseSpec,
+                    CharacteristicPairClauseSpec,
+                ),
+            ):
                 dataset_clauses.append(clause)
             elif clause.field.target == Target.DATASET:
                 dataset_clauses.append(clause)
@@ -127,7 +134,9 @@ class QueryPlanner:
         leaf_predicates: list[BoolExpr] = []
         for term in clause.terms:
             leaf_predicates.append(
-                self._make_term_leaf(clause.field.field_key, clause.field.value_type, clause.match, term)
+                self._make_term_leaf(
+                    clause.field.field_key, clause.field.value_type, clause.match, term
+                )
             )
 
         if len(leaf_predicates) == 1:

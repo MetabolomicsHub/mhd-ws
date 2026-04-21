@@ -320,7 +320,12 @@ _ADVANCED_SEARCH_EXAMPLES = {
         ),
         value={
             "clauses": [
-                {"kind": "compare", "field_id": "samples_count", "op": "GT", "value": 20},
+                {
+                    "kind": "compare",
+                    "field_id": "samples_count",
+                    "op": "GT",
+                    "value": 20,
+                },
                 {
                     "kind": "terms",
                     "field_id": "facet_diseases",
@@ -653,7 +658,13 @@ def _build_filters(search_options: SearchOptions | None) -> list[FilterModel] | 
 
 
 def _build_advanced_search_example(field_registry: FieldRegistry) -> SearchRequestDTO:
-    clauses: list[TermClauseDTO | ComparatorClauseDTO | ParameterPairClauseDTO | DescriptorClauseDTO | CharacteristicPairClauseDTO] = []
+    clauses: list[
+        TermClauseDTO
+        | ComparatorClauseDTO
+        | ParameterPairClauseDTO
+        | DescriptorClauseDTO
+        | CharacteristicPairClauseDTO
+    ] = []
 
     dataset_term_field = _find_field(
         field_registry, target=Target.DATASET, require_terms=True
@@ -727,9 +738,7 @@ def _find_field(
 
 def _build_term_clause_example(field: FieldDef) -> TermClauseDTO:
     match_mode = (
-        field.ops.allowed_match_modes[0]
-        if field.ops.allowed_match_modes
-        else "AUTO"
+        field.ops.allowed_match_modes[0] if field.ops.allowed_match_modes else "AUTO"
     )
     intra_combiner = (
         field.ops.allowed_intra_combiners[0]
@@ -747,9 +756,7 @@ def _build_term_clause_example(field: FieldDef) -> TermClauseDTO:
 
 def _build_comparator_clause_example(field: FieldDef) -> ComparatorClauseDTO:
     comparator = (
-        field.ops.allowed_comparators[0]
-        if field.ops.allowed_comparators
-        else "EQ"
+        field.ops.allowed_comparators[0] if field.ops.allowed_comparators else "EQ"
     )
     return ComparatorClauseDTO(
         field_id=field.field_id,

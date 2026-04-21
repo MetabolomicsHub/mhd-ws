@@ -25,8 +25,8 @@ class ValueType(str, Enum):
 
 
 class FieldRef(BaseModel):
-    field_key: str              # canonical stable identifier
-    target: Target              # STUDY vs METABOLITE
+    field_key: str  # canonical stable identifier
+    target: Target  # STUDY vs METABOLITE
     value_type: ValueType
 
 
@@ -77,7 +77,13 @@ class CharacteristicPairClauseSpec(BaseModel):
 
 
 FieldClauseSpec = Annotated[
-    Union[TermClauseSpec, ComparatorClauseSpec, ParameterPairClauseSpec, DescriptorClauseSpec, CharacteristicPairClauseSpec],
+    Union[
+        TermClauseSpec,
+        ComparatorClauseSpec,
+        ParameterPairClauseSpec,
+        DescriptorClauseSpec,
+        CharacteristicPairClauseSpec,
+    ],
     Field(discriminator="kind"),
 ]
 

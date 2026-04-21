@@ -21,9 +21,7 @@ from mhd_ws.presentation.rest_api.core.responses import APIErrorResponse
 
 logger = logging.getLogger(__name__)
 
-PUBLIC_ANNOUNCEMENT_FILE_REGEX = re.compile(
-    r"^/v0_1/datasets/[^/]+/announcement-file$"
-)
+PUBLIC_ANNOUNCEMENT_FILE_REGEX = re.compile(r"^/v0_1/datasets/[^/]+/announcement-file$")
 
 
 def is_public_announcement_file(route_path: str) -> bool:

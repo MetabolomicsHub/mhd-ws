@@ -1,5 +1,3 @@
-
-
 from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
@@ -17,6 +15,7 @@ class DatasetHitsOutput(BaseModel):
     type: Literal["DATASET_HITS"] = "DATASET_HITS"
     includes: Optional[list[str]] = None
 
+
 class MetaboliteIdStage(BaseModel):
     id: Literal["stage_metabolite_ids"] = "stage_metabolite_ids"
     kind: Literal["METABOLITE_IDS"] = "METABOLITE_IDS"
@@ -26,9 +25,11 @@ class MetaboliteIdStage(BaseModel):
 
     output: DatasetIdSetOutput = Field(default_factory=DatasetIdSetOutput)
 
+
 class DatasetIdConstraint(BaseModel):
     kind: Literal["DATASET_ID_IN"] = "DATASET_ID_IN"
     from_stage_id: Literal["stage_metabolite_ids"] = "stage_metabolite_ids"
+
 
 class DatasetSearchStage(BaseModel):
     id: Literal["stage_dataset_search"] = "stage_dataset_search"
@@ -37,6 +38,7 @@ class DatasetSearchStage(BaseModel):
     dataset_predicate: BoolExpr
     constraints: list[DatasetIdConstraint] = Field(default_factory=list)
     output: DatasetHitsOutput = Field(default_factory=DatasetHitsOutput)
+
 
 QueryStage = Annotated[
     Union[MetaboliteIdStage, DatasetSearchStage],

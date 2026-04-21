@@ -1,4 +1,5 @@
 """CLI command for seeding Dataset rows from .mhd.json files."""
+
 from __future__ import annotations
 
 import asyncio
@@ -79,7 +80,10 @@ async def _seed_one(
 ) -> tuple[bool, str]:
     repo = await _resolve_repository(session, repository_id, repository_name)
     if repo is None:
-        return False, "Repository not found. Provide --repository-id or ensure repository exists."
+        return (
+            False,
+            "Repository not found. Provide --repository-id or ensure repository exists.",
+        )
 
     stmt = select(Dataset).where(Dataset.accession == accession).limit(1)
     result = await session.execute(stmt)
@@ -159,9 +163,7 @@ def seed_datasets(
     if not files:
         raise click.ClickException(f"No *.mhd.json files found in {mhd_dir}")
 
-    resolved_accession_type = (
-        AccessionType(accession_type) if accession_type else None
-    )
+    resolved_accession_type = AccessionType(accession_type) if accession_type else None
 
     def _load_json(path: Path) -> dict[str, Any]:
         try:

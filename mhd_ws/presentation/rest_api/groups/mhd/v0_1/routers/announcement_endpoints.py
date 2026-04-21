@@ -700,9 +700,7 @@ async def get_revision_file(
         logger.warning("Cache read failed for %s: %s", cache_key, ex)
     if cached is not None:
         content = cached if isinstance(cached, str) else json.dumps(cached)
-        download_filename = (
-            f'attachment; filename="{accession}_announcement.json"'
-        )
+        download_filename = f'attachment; filename="{accession}_announcement.json"'
         headers = {
             "x-mtbls-file-type": "application/json",
             "Content-Disposition": download_filename,
@@ -845,7 +843,9 @@ async def derive_announcement_file(
     async_task_service: AsyncTaskService = Depends(  # noqa: FAST002
         Provide["services.async_task_service"]
     ),
-    mhd_file_base_url_config: str | None = Depends(Provide["gateways.mhd_file_base_url"]),  # noqa: FAST002
+    mhd_file_base_url_config: str | None = Depends(
+        Provide["gateways.mhd_file_base_url"]
+    ),  # noqa: FAST002
     repository: Annotated[None | RepositoryModel, Depends(validate_api_token)] = None,
 ):
     if not repository:
@@ -857,7 +857,9 @@ async def derive_announcement_file(
         response.status_code = http_status.HTTP_400_BAD_REQUEST
         return MhdAsyncTaskResponse(
             accession=accession,
-            errors=["mhd_file_base_url is required (provide as query param or configure announcement.mhd_file_base_url)."],
+            errors=[
+                "mhd_file_base_url is required (provide as query param or configure announcement.mhd_file_base_url)."
+            ],
         )
 
     # Verify dataset exists and belongs to this repository
