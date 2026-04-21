@@ -85,7 +85,9 @@ class TestTermClauseResolution:
         with pytest.raises(ValueError, match="Match mode"):
             resolver.resolve(dto)
 
-    def test_disallowed_intra_combiner_raises(self, resolver: SearchSpecResolver) -> None:
+    def test_disallowed_intra_combiner_raises(
+        self, resolver: SearchSpecResolver
+    ) -> None:
         dto = SearchRequestDTO(
             clauses=[
                 TermClauseDTO(

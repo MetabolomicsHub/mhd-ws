@@ -34,9 +34,7 @@ async def test_basic_auth_named_api_key_requests_reuse_basic_auth_client(
             self.indices = object()
             instances.append(self)
 
-    monkeypatch.setattr(
-        es_client_module, "AsyncElasticsearch", FakeAsyncElasticsearch
-    )
+    monkeypatch.setattr(es_client_module, "AsyncElasticsearch", FakeAsyncElasticsearch)
 
     client = ElasticsearchClient(
         {
@@ -76,9 +74,7 @@ async def test_authentication_error_message_is_explicit(
             self.close = AsyncMock()
             self.indices = FakeIndicesClient()
 
-    monkeypatch.setattr(
-        es_client_module, "AsyncElasticsearch", FakeAsyncElasticsearch
-    )
+    monkeypatch.setattr(es_client_module, "AsyncElasticsearch", FakeAsyncElasticsearch)
 
     client = ElasticsearchClient(
         {

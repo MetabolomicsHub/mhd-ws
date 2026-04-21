@@ -56,7 +56,13 @@ class CharacteristicPairClauseDTO(BaseModel):
 
 
 FieldClauseDTO = Annotated[
-    Union[TermClauseDTO, ComparatorClauseDTO, ParameterPairClauseDTO, DescriptorClauseDTO, CharacteristicPairClauseDTO],
+    Union[
+        TermClauseDTO,
+        ComparatorClauseDTO,
+        ParameterPairClauseDTO,
+        DescriptorClauseDTO,
+        CharacteristicPairClauseDTO,
+    ],
     Field(discriminator="kind"),
 ]
 

@@ -1,4 +1,5 @@
 """CLI command for deriving announcement files from .mhd.json files."""
+
 from __future__ import annotations
 
 import asyncio
@@ -123,9 +124,13 @@ def derive_announcement(
         --config-file config/local.yml
     """
     if mhd_dir and (accession or mhd_file_path):
-        raise click.ClickException("--dir cannot be combined with ACCESSION or --mhd-file.")
+        raise click.ClickException(
+            "--dir cannot be combined with ACCESSION or --mhd-file."
+        )
     if not mhd_dir and not mhd_file_path:
-        raise click.ClickException("Provide either --mhd-file (with ACCESSION) or --dir.")
+        raise click.ClickException(
+            "Provide either --mhd-file (with ACCESSION) or --dir."
+        )
     if mhd_file_path and not accession:
         raise click.ClickException("ACCESSION is required when using --mhd-file.")
 
@@ -158,6 +163,7 @@ def derive_announcement(
         if not files:
             raise click.ClickException(f"No *.mhd.json files found in {mhd_dir}")
         eprint(f"Processing {len(files)} file(s) from {mhd_dir} ...")
+
         async def _run_dir() -> tuple[int, int]:
             ok = err = 0
             for f in files:
@@ -176,6 +182,7 @@ def derive_announcement(
     else:
         p = Path(mhd_file_path)
         url = _resolve_url(accession, p)
+
         async def _run_one() -> bool:
             return await _run_derive(accession, _load_json(p), url, reason, db_client)
 

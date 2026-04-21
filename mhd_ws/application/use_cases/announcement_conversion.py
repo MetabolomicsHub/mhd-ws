@@ -1,4 +1,5 @@
 """Convert mhd.json payloads to announcement file payloads."""
+
 from __future__ import annotations
 
 import json

@@ -55,9 +55,7 @@ def get_graph_parts(
     return node_by_id, relationships
 
 
-def choose_study_id(
-    mhd: dict[str, Any], node_by_id: dict[str, dict[str, Any]]
-) -> str:
+def choose_study_id(mhd: dict[str, Any], node_by_id: dict[str, dict[str, Any]]) -> str:
     """Select the study node id using start refs or fallback to first study."""
     graph = mhd.get("graph") or {}
     start_refs = graph.get("start_item_refs") or []

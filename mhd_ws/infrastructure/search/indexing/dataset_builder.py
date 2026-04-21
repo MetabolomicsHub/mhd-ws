@@ -206,12 +206,14 @@ def _collect_descriptors(
         name = descriptor_node.get("name")
         if not name:
             return
-        doc["descriptors"].append({
-            "name": name,
-            "source": descriptor_node.get("source"),
-            "accession": descriptor_node.get("accession"),
-            "relationship": relationship,
-        })
+        doc["descriptors"].append(
+            {
+                "name": name,
+                "source": descriptor_node.get("source"),
+                "accession": descriptor_node.get("accession"),
+                "relationship": relationship,
+            }
+        )
 
     # Study-level keyword relationships
     for rel_name in _STUDY_DESCRIPTOR_RELS:
@@ -679,18 +681,14 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
     factor_def_ids = rel_targets(relidx, study_id, "has-factor-definition")
     if not factor_def_ids:
         factor_def_ids = [
-            nid
-            for nid, n in node_by_id.items()
-            if n.get("type") == "factor-definition"
+            nid for nid, n in node_by_id.items() if n.get("type") == "factor-definition"
         ]
     factor_def_id_set = set(factor_def_ids)
     factor_entries: list[dict[str, Any]] = []
     seen_factors: set[tuple[str, ...]] = set()
 
     for fv_node in [
-        n
-        for n in node_by_id.values()
-        if (n.get("type") or "").endswith("factor-value")
+        n for n in node_by_id.values() if (n.get("type") or "").endswith("factor-value")
     ]:
         fv_id = fv_node.get("id")
         if not fv_id:
@@ -710,9 +708,7 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
             fd = node_by_id.get(def_id, {})
             type_ref = fd.get("factor_type_ref")
             type_node = node_by_id.get(type_ref) if type_ref else None
-            type_name = (type_node.get("name") if type_node else None) or fd.get(
-                "name"
-            )
+            type_name = (type_node.get("name") if type_node else None) or fd.get("name")
             if type_name:
                 type_names.append(type_name)
             if type_node and type_ref:
@@ -758,7 +754,11 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
         type_infos: list[tuple[str | None, str | None, str | None]] = []
         for type_node in type_nodes_by_id.values():
             type_infos.append(
-                (node_name(type_node), type_node.get("accession"), type_node.get("source"))
+                (
+                    node_name(type_node),
+                    type_node.get("accession"),
+                    type_node.get("source"),
+                )
             )
         if not type_infos:
             type_infos.append((None, None, None))
@@ -880,9 +880,10 @@ def build_legacy_dataset_doc(  # noqa: C901, PLR0912, PLR0915
                 doc["facets"]["parameter_values"].append(value_label)
 
             type_name_lc = (type_name or "").lower()
-            is_instrument = "instrument" in type_name_lc or (
-                type_accession or ""
-            ) in INSTRUMENT_ACCESSION_BUCKET
+            is_instrument = (
+                "instrument" in type_name_lc
+                or (type_accession or "") in INSTRUMENT_ACCESSION_BUCKET
+            )
             if is_instrument and value_label:
                 inst_entry = {
                     "name": value_label,

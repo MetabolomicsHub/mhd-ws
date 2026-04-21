@@ -74,9 +74,7 @@ class TestStagePlanning:
         assert len(plan.stages[1].constraints) == 1
 
     def test_mixed_clauses_partitioned(self, planner: QueryPlanner) -> None:
-        spec = SearchSpec(
-            clauses=[_dataset_term_clause(), _metabolite_term_clause()]
-        )
+        spec = SearchSpec(clauses=[_dataset_term_clause(), _metabolite_term_clause()])
         plan = planner.plan(spec)
 
         assert len(plan.stages) == 2
@@ -114,9 +112,7 @@ class TestPredicateGeneration:
         assert len(pred.children) == 2
 
     def test_negation_wrapping(self, planner: QueryPlanner) -> None:
-        spec = SearchSpec(
-            clauses=[_dataset_term_clause(negated=True)]
-        )
+        spec = SearchSpec(clauses=[_dataset_term_clause(negated=True)])
         plan = planner.plan(spec)
         pred = plan.stages[0].dataset_predicate
         assert isinstance(pred, NotExpr)
@@ -158,9 +154,7 @@ class TestPredicateGeneration:
         assert isinstance(pred, ExactMatchPredicate)
 
     def test_phrase_match_mode(self, planner: QueryPlanner) -> None:
-        spec = SearchSpec(
-            clauses=[_dataset_term_clause(match="PHRASE")]
-        )
+        spec = SearchSpec(clauses=[_dataset_term_clause(match="PHRASE")])
         plan = planner.plan(spec)
         pred = plan.stages[0].dataset_predicate
         assert isinstance(pred, PhraseMatchPredicate)

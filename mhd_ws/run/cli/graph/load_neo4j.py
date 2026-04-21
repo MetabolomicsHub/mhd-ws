@@ -180,7 +180,9 @@ def load_neo4j(
             if include_embedded:
                 for node in graph.get("nodes", []):
                     embedded_count += len(_extract_embedded_relationships(node))
-        eprint(f"Dry run: nodes={node_count} relationships={rel_count} embedded={embedded_count}")
+        eprint(
+            f"Dry run: nodes={node_count} relationships={rel_count} embedded={embedded_count}"
+        )
         return
 
     neo4j_uri = uri or os.getenv("NEO4J_URI") or "bolt://localhost:7687"
@@ -220,7 +222,9 @@ def load_neo4j(
             for label, rows in node_batches.items():
                 _flush_nodes(session, label, rows)
 
-            rel_batches: dict[tuple[str, bool], list[dict[str, Any]]] = defaultdict(list)
+            rel_batches: dict[tuple[str, bool], list[dict[str, Any]]] = defaultdict(
+                list
+            )
             for _, mhd in mhd_files:
                 graph = mhd.get("graph", {})
                 for rel in graph.get("relationships", []):
@@ -247,12 +251,18 @@ def load_neo4j(
                     )
                     rel_count += 1
                     if len(rel_batches[key]) >= batch_size:
-                        _flush_relationships(session, rel_type, rel_batches[key], key[1])
+                        _flush_relationships(
+                            session, rel_type, rel_batches[key], key[1]
+                        )
                         rel_batches[key].clear()
 
                 if include_embedded:
                     for node in graph.get("nodes", []):
-                        for source_id, target_id, key_name in _extract_embedded_relationships(node):
+                        for (
+                            source_id,
+                            target_id,
+                            key_name,
+                        ) in _extract_embedded_relationships(node):
                             rel_type = _sanitize_token(key_name, prefix="R")
                             key = (rel_type, False)
                             rel_batches[key].append(
@@ -276,6 +286,5 @@ def load_neo4j(
         driver.close()
 
     eprint(
-        "Loaded nodes="
-        f"{node_count} relationships={rel_count} embedded={embedded_count}"
+        f"Loaded nodes={node_count} relationships={rel_count} embedded={embedded_count}"
     )

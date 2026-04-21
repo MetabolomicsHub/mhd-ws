@@ -53,7 +53,9 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         self._planner = planner
         self._index_registry = index_registry
         self._facet_size = facet_size
-        self._facet_fields = [f for f in field_registry.fields if f.facet_key is not None]
+        self._facet_fields = [
+            f for f in field_registry.fields if f.facet_key is not None
+        ]
 
     async def get_index_mapping(self) -> dict[str, Any]:
         index_caps = self._index_registry.get_index_strict("ms-dataset-index")
@@ -86,16 +88,12 @@ class AdvancedSearchGateway(AdvancedSearchPort):
     # Stage executors
     # ------------------------------------------------------------------
 
-    async def _execute_metabolite_stage(
-        self, stage: MetaboliteIdStage
-    ) -> set[str]:
+    async def _execute_metabolite_stage(self, stage: MetaboliteIdStage) -> set[str]:
         index_caps = self._index_registry.get_index_strict(stage.index_key)
         compiler = EsDslCompiler(index_caps)
         query = compiler.compile_query(stage.metabolite_predicate)
 
-        join_field = index_caps.get_field_strict(
-            index_caps.join.dataset_id_field_key
-        )
+        join_field = index_caps.get_field_strict(index_caps.join.dataset_id_field_key)
         dataset_id_es_path = join_field.es_path
 
         collected_ids: set[str] = set()
@@ -131,9 +129,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
             if after_key is None:
                 break
 
-        logger.debug(
-            "Metabolite stage collected %d dataset IDs", len(collected_ids)
-        )
+        logger.debug("Metabolite stage collected %d dataset IDs", len(collected_ids))
         return collected_ids
 
     async def _execute_dataset_stage(
@@ -154,9 +150,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
             join_field = index_caps.get_field_strict(
                 index_caps.join.dataset_id_field_key
             )
-            id_filter = {
-                "terms": {join_field.es_path: sorted(dataset_ids)}
-            }
+            id_filter = {"terms": {join_field.es_path: sorted(dataset_ids)}}
             if "bool" in query_dsl:
                 query_dsl["bool"].setdefault("filter", []).append(id_filter)
             else:
@@ -178,7 +172,9 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         ]
         if parameter_facet_types:
             body["aggs"].update(
-                compiler.compile_parameter_group_aggs(parameter_facet_types, self._facet_size)
+                compiler.compile_parameter_group_aggs(
+                    parameter_facet_types, self._facet_size
+                )
             )
         characteristic_facet_types = [
             c.type_name
@@ -187,7 +183,9 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         ]
         if characteristic_facet_types:
             body["aggs"].update(
-                compiler.compile_characteristic_group_aggs(characteristic_facet_types, self._facet_size)
+                compiler.compile_characteristic_group_aggs(
+                    characteristic_facet_types, self._facet_size
+                )
             )
 
         logger.debug(
@@ -237,7 +235,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         for name, agg_data in aggs.items():
             # Characteristic group drill-down: nested → by_type → values → buckets
             if name.startswith("char__") and "by_type" in agg_data:
-                type_name = name[len("char__"):]
+                type_name = name[len("char__") :]
                 buckets_raw = (
                     agg_data.get("by_type", {}).get("values", {}).get("buckets", [])
                 )
@@ -251,7 +249,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
 
             # Parameter group drill-down: nested → by_type → values → buckets
             if name.startswith("param__") and "by_type" in agg_data:
-                type_name = name[len("param__"):]
+                type_name = name[len("param__") :]
                 buckets_raw = (
                     agg_data.get("by_type", {}).get("values", {}).get("buckets", [])
                 )

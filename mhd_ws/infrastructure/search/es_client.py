@@ -183,9 +183,7 @@ class ElasticsearchClient:
                 raise RuntimeError(f"Elasticsearch connection error: {e}") from e
             except Exception as exc:
                 await es.close()
-                logger.exception(
-                    "Unexpected Elasticsearch connection failure: %s", exc
-                )
+                logger.exception("Unexpected Elasticsearch connection failure: %s", exc)
                 raise
 
     async def ensure_started(self, api_key_name: Optional[str] = None) -> None:
@@ -329,9 +327,7 @@ class ElasticsearchClient:
                 api_key_name=api_key_name,
                 index=index,
             )
-            raise RuntimeError(
-                f"Index creation failed for {index}: {e}"
-            ) from e
+            raise RuntimeError(f"Index creation failed for {index}: {e}") from e
 
     async def delete_index(
         self, index: str, api_key_name: Optional[str] = None
@@ -405,7 +401,5 @@ class ElasticsearchClient:
                 f"Bulk upload failed for {len(errors)} items; sample: {sample}"
             )
 
-        logger.info(
-            "Bulk uploaded %d docs to index %s", total_uploaded, index_name
-        )
+        logger.info("Bulk uploaded %d docs to index %s", total_uploaded, index_name)
         return total_uploaded

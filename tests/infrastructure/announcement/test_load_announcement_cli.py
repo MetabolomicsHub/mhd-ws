@@ -1,4 +1,5 @@
 """Tests for CLI announcement loading accession parsing."""
+
 from __future__ import annotations
 
 from pathlib import Path

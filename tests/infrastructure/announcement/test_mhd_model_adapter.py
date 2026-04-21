@@ -1,4 +1,5 @@
 """Tests for the mhd-model announcement converter shim."""
+
 from __future__ import annotations
 
 import json
@@ -49,7 +50,9 @@ class TestConvertMhdToAnnouncement:
             "mhd_ws.application.use_cases.announcement_conversion.legacy_create_announcement_file"
         ) as mock_legacy:
             mock_legacy.side_effect = _make_fake_create(FAKE_ANNOUNCEMENT)
-            result = convert_mhd_to_announcement(mhd_file, mhd_file_url, profile="legacy")
+            result = convert_mhd_to_announcement(
+                mhd_file, mhd_file_url, profile="legacy"
+            )
 
         assert result == FAKE_ANNOUNCEMENT
         mock_legacy.assert_called_once()

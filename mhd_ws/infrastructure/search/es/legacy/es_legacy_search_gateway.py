@@ -71,9 +71,7 @@ class ElasticsearchLegacyGateway(BaseElasticSearchGateway):
                     "nested": {
                         "path": nested_field.path,
                         "query": {
-                            "match": {
-                                f"{nested_field.path}.{nested_field.field}": text
-                            }
+                            "match": {f"{nested_field.path}.{nested_field.field}": text}
                         },
                     }
                 }
@@ -83,17 +81,9 @@ class ElasticsearchLegacyGateway(BaseElasticSearchGateway):
     @staticmethod
     def _filter_clause(f: FilterModel) -> dict[str, Any]:
         if f.operator == "all":
-            return {
-                "bool": {
-                    "must": [{"term": {f.field: v}} for v in f.values]
-                }
-            }
+            return {"bool": {"must": [{"term": {f.field: v}} for v in f.values]}}
         if f.operator == "none":
-            return {
-                "bool": {
-                    "must_not": [{"terms": {f.field: f.values}}]
-                }
-            }
+            return {"bool": {"must_not": [{"terms": {f.field: f.values}}]}}
         # default: "any"
         return {"terms": {f.field: f.values}}
 
