@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import click
 
 from mhd_ws.run.cli.announcement.derive_announcement import derive_announcement
@@ -25,4 +27,4 @@ mhd_tool.add_command(load_neo4j)
 
 
 if __name__ == "__main__":
-    mhd_tool()
+    mhd_tool(args=[arg for arg in sys.argv[1:] if arg != ""])

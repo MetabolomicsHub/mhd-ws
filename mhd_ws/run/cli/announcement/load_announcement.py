@@ -17,9 +17,32 @@ from mhd_ws.run.config_renderer import render_config_secrets
 logger = logging.getLogger(__name__)
 
 
+def _strip_suffix(value: str, suffix: str) -> str:
+    if value.endswith(suffix):
+        return value[: -len(suffix)]
+    return value
+
+
 def _get_accession(data: dict[str, Any], path: Path) -> str:
     """Extract accession from mhd_identifier field, falling back to filename stem."""
-    return data.get("mhd_identifier") or path.stem
+    raw = data.get("mhd_identifier") or path.stem
+    while True:
+        updated = raw
+        updated = _strip_suffix(updated, ".announcement")
+        updated = _strip_suffix(updated, ".mhd")
+        updated = _strip_suffix(updated, ".md")
+        if updated == raw:
+            return raw
+        raw = updated
+
+
+def _get_announcement_files(directory: Path) -> list[Path]:
+    """Return announcement JSON files, skipping source .mhd.json inputs."""
+    return sorted(
+        path
+        for path in directory.glob("*.json")
+        if not path.name.endswith(".mhd.json")
+    )
 
 
 async def _run_load(
@@ -127,9 +150,11 @@ def load_announcement(
             raise click.ClickException(f"Failed to parse {path}: {e}") from e
 
     if announcement_dir:
-        files = sorted(Path(announcement_dir).glob("*.json"))
+        files = _get_announcement_files(Path(announcement_dir))
         if not files:
-            raise click.ClickException(f"No *.json files found in {announcement_dir}")
+            raise click.ClickException(
+                f"No announcement *.json files found in {announcement_dir}"
+            )
         eprint(f"Processing {len(files)} file(s) from {announcement_dir} ...")
         async def _run_dir() -> tuple[int, int]:
             ok = err = 0

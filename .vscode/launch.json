@@ -8,7 +8,7 @@
             "name": "Run MHD FastAPI",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "program": "${workspaceFolder}/mhd_ws/run/rest_api/mhd/main.py",
             "cwd": "${workspaceFolder}",
             "env": {
@@ -22,7 +22,7 @@
         },
         {
             "name": "Attach MHD 5678",
-            "type": "python",
+            "type": "debugpy",
             "request": "attach",
             "connect": {
                 "host": "127.0.0.1",
@@ -34,7 +34,7 @@
             "name": "Run MHD Celery Worker",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "program": "${workspaceFolder}/mhd_ws/run/worker/mhd/main.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
@@ -51,7 +51,7 @@
             "name": "Python: Run Current file",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
@@ -62,9 +62,9 @@
         },
         {
             "name": "MHD CLI: derive announcement",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "derive-announcement",
@@ -90,7 +90,7 @@
             "name": "MHD CLI: derive announcements from dir",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "derive-announcement",
@@ -115,14 +115,12 @@
             "name": "MHD CLI: seed datasets from dir",
             "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "seed-datasets",
                 "--dir",
                 "${input:mhdDir}",
-                "--repository-name",
-                "${input:mhdRepositoryName}",
                 "--config-file",
                 "${workspaceFolder}/mhd-ws-config.yaml",
                 "--secrets-file",
@@ -138,14 +136,14 @@
         },
         {
             "name": "MHD CLI: load announcement",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "load-announcement",
                 "--dir",
-                "${workspaceFolder}/.temp/announcements",
+                "${input:mhdDir}",
                 "--config-file",
                 "${workspaceFolder}/mhd-ws-config.yaml",
                 "--secrets-file",
@@ -161,17 +159,17 @@
         },
         {
             "name": "MHD CLI: index datasets (upload + recreate)",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "index",
-                "${workspaceFolder}/.temp",
+                "/Users/cmartin/Projects/mw-mhd-integration/.outputs/mhd_legacy",
                 "--upload",
-                "--recreate-index",
+                "${input:mhdRecreateIndexFlag}",
                 "--config-file",
-                "${workspaceFolder}/mhd-ws-config.yaml",
+                "${workspaceFolder}/mhd-ws-config-test.yaml",
                 "--secrets-file",
                 "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
             ],
@@ -179,15 +177,15 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
                 "MHD_INDEX_NAME": "dataset_ms_v1",
-                "MHD_METABOLITE_INDEX_NAME": "metabolite_legacy_v1"
+                "MHD_METABOLITE_INDEX_NAME": "metabolite_ms_v1"
             },
             "console": "integratedTerminal"
         },
         {
             "name": "MHD CLI: load Neo4j",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "python": "${command:python.interpreterPath}",
+            "python": "${config:python.defaultInterpreterPath}",
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "load-neo4j",
@@ -228,6 +226,16 @@
             "id": "mhdRepositoryName",
             "type": "promptString",
             "description": "Repository name (matches repository.name or short_name). Leave blank to use value from JSON.",
+            "default": ""
+        },
+        {
+            "id": "mhdRecreateIndexFlag",
+            "type": "pickString",
+            "description": "Include --recreate-index?",
+            "options": [
+                "",
+                "--recreate-index"
+            ],
             "default": ""
         }
     ]

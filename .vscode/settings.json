@@ -26,12 +26,8 @@
   "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   },
-  "python-envs.pythonProjects": [
-    {
-      "path": "",
-      "envManager": "ms-python.python:uv",
-      "packageManager": "ms-python.python:uv"
-    }
+  "python-envs.workspaceSearchPaths": [
+    "./.venv"
   ],
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
 }

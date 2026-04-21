@@ -39,7 +39,7 @@ def _default_index_name() -> str:
 
 
 def _default_metabolite_index_name() -> str:
-    return os.getenv("MHD_METABOLITE_INDEX_NAME") or "metabolite_legacy_v1"
+    return os.getenv("MHD_METABOLITE_INDEX_NAME") or "metabolite_ms_v1"
 
 
 def _ensure_cli_logging(
