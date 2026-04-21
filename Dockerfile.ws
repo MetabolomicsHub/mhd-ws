@@ -12,6 +12,7 @@ WORKDIR /app
 COPY pyproject.toml pyproject.toml
 COPY uv.lock uv.lock
 COPY README.md README.md
+COPY mhd_ws mhd_ws
 RUN uv sync --locked --group=dev
 ENV PYTHONPATH=/app
 
