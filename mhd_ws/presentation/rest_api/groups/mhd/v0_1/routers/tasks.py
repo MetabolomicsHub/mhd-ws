@@ -33,7 +33,6 @@ from mhd_ws.application.use_cases.announcement_conversion import (
 )
 from mhd_ws.infrastructure.persistence.db.db_client import DatabaseClient
 from mhd_ws.infrastructure.persistence.db.mhd import (
-    AccessionType,
     AnnouncementFile,
     Dataset,
     DatasetRevision,
@@ -562,18 +561,10 @@ async def derive_announcement(
                     "success": False,
                     "message": f"Dataset {accession!r} not found in database.",
                 }
-            profile = (
-                "legacy"
-                if db_dataset.accession_type
-                in (AccessionType.LEGACY, AccessionType.TEST_LEGACY)
-                else "ms"
-            )
 
         # Step 3: Convert mhd.json to announcement
         try:
-            announcement_json = convert_mhd_to_announcement(
-                mhd_file_json, mhd_file_url, profile=profile
-            )
+            announcement_json = convert_mhd_to_announcement(mhd_file_json, mhd_file_url)
         except Exception as e:
             return {"success": False, "message": f"Conversion failed: {e}"}
 

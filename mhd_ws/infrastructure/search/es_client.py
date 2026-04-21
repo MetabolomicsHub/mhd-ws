@@ -147,13 +147,14 @@ class ElasticsearchClient:
                 self._config.request_timeout,
                 self._config.verify_certs,
             )
-            es = AsyncElasticsearch(
-                hosts=self._config.hosts or None,
-                request_timeout=self._config.request_timeout,
-                verify_certs=self._config.verify_certs,
-                **auth_kwargs,
-            )
+
             try:
+                es = AsyncElasticsearch(
+                    hosts=self._config.hosts or None,
+                    request_timeout=self._config.request_timeout,
+                    verify_certs=self._config.verify_certs,
+                    **auth_kwargs,
+                )
                 ok = await es.ping()
                 if not ok:
                     logger.warning(
