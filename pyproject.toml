@@ -28,10 +28,10 @@ dependencies = [
     "gunicorn>=23.0.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.6",
-    "jsonpath-ng>=1.7.0",
+    "jsonpath-ng>=1.8.0",
     "mhd-model>=0.1.77",
     "neo4j>=5.12.0",
-    "psycopg2-binary>=2.9.10",
+    "psycopg>=3.3.3",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.12.0",
     "pyjwt>=2.10.1",
@@ -43,7 +43,7 @@ dependencies = [
     "redis>=6.2.0",
     "sqlalchemy>=2.0.41",
     "ujson>=5.12.0",
-    "uvicorn>=0.34.3",
+    "uvicorn>=0.44.0",
     "uvloop>=0.21.0",
     "tornado>=6.5.5",
     "click>=8.0",
@@ -55,20 +55,20 @@ mhd-cli = "mhd_ws.run.cli.main:mhd_tool"
 
 [dependency-groups]
 dev = [
-    "commitizen>=4.8.3",
-    "import-linter>=2.3",
-    "pre-commit>=4.2.0",
-    "ruff>=0.12.0",
-    "sqlacodegen>=3.0.0",
+    "commitizen>=4.13.10",
+    "import-linter>=2.11",
+    "pre-commit>=4.5.1",
+    "ruff>=0.15.11",
+    "sqlacodegen>=3.2.0",
     "aiosqlite>=0.21.0",
-    "pytest>=8.4.1",
+    "pytest>=9.0.3",
     "pytest-asyncio>=1.0.0",
-    "pytest-cov>=6.2.1",
+    "pytest-cov>=7.1.0",
     #security related
     "pygments>=2.20.0",
 ]
 docs = [
-    "mkdocs-material>=9.5.49",
+    "mkdocs-material>=9.7.6",
 ]
 
 
