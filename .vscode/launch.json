@@ -122,7 +122,7 @@
                 "--dir",
                 "${input:mhdDir}",
                 "--config-file",
-                "${workspaceFolder}/mhd-ws-config.yaml",
+                "${workspaceFolder}/mhd-ws-config-prod.yaml",
                 "--secrets-file",
                 "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
             ],
@@ -145,7 +145,7 @@
                 "--dir",
                 "${input:mhdDir}",
                 "--config-file",
-                "${workspaceFolder}/mhd-ws-config.yaml",
+                "${workspaceFolder}/mhd-ws-config-prod.yaml",
                 "--secrets-file",
                 "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
             ],
@@ -165,11 +165,11 @@
             "module": "mhd_ws.run.cli.main",
             "args": [
                 "index",
-                "/Users/cmartin/Projects/mw-mhd-integration/.outputs/mhd_legacy",
+                "/Users/cmartin/Downloads/mhd_legacy/",
                 "--upload",
                 "${input:mhdRecreateIndexFlag}",
                 "--config-file",
-                "${workspaceFolder}/mhd-ws-config-test.yaml",
+                "${workspaceFolder}/mhd-ws-config-prod.yaml",
                 "--secrets-file",
                 "${workspaceFolder}/.secrets/mhd-ws-secrets.yaml"
             ],

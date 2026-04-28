@@ -35,6 +35,7 @@ gateways:
         password: elasticsearch_password
         verify_certs: true
         request_timeout: 5.0
+        bulk_request_timeout: 120.0
 services: {}
 run:
   cli:
