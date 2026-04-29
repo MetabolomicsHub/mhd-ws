@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Union
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -34,7 +35,8 @@ class DatabaseClientImpl(DatabaseClient):
         self.db_url_repr = (
             f"{cn.url_scheme}://{cn.user}:***@{cn.host}:{cn.port}/{cn.database}"
         )
-        connect_args = {"server_settings": {"search_path": cn.schema}}
+        self.db_schema = cn.schema or "public"
+        connect_args = {"server_settings": {"search_path": self.db_schema}}
         if db_pool_size is not None and db_pool_size > 0:
             self.engine = create_async_engine(
                 self.db_url,
@@ -67,6 +69,10 @@ class DatabaseClientImpl(DatabaseClient):
     async def session(self) -> AsyncGenerator[AsyncSession, None]:
         async with self._async_session_factory() as session:
             try:
+                await session.execute(
+                    text("SELECT set_config('search_path', :schema, false)"),
+                    {"schema": self.db_schema},
+                )
                 yield session
             except Exception as ex:
                 await session.rollback()

@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional
 
+from elastic_transport import ConnectionTimeout
 from elasticsearch import ApiError, AsyncElasticsearch
 from elasticsearch.helpers import async_streaming_bulk
 from pydantic import BaseModel, Field
@@ -28,6 +29,10 @@ class ElasticsearchClientConfig(BaseModel):
     )
     request_timeout: Optional[float] = Field(
         5.0, description="Request timeout in seconds"
+    )
+    bulk_request_timeout: Optional[float] = Field(
+        120.0,
+        description="Request timeout in seconds for bulk indexing requests",
     )
     verify_certs: bool = Field(
         default=True, description="Verify SSL certificates for HTTPS connections"
@@ -371,6 +376,9 @@ class ElasticsearchClient:
         client = await self._get_started_client(api_key_name)
         errors: List[Dict[str, Any]] = []
         total_uploaded = 0
+        bulk_request_timeout = (
+            self._config.bulk_request_timeout or self._config.request_timeout
+        )
 
         def actions():
             for doc in docs:
@@ -384,17 +392,26 @@ class ElasticsearchClient:
                     action["_id"] = doc_id
                 yield action
 
-        async for ok, item in async_streaming_bulk(
-            client,
-            actions(),
-            chunk_size=batch_size,
-            raise_on_error=False,
-            raise_on_exception=True,
-        ):
-            if ok:
-                total_uploaded += 1
-                continue
-            errors.append(item)
+        try:
+            async for ok, item in async_streaming_bulk(
+                client,
+                actions(),
+                chunk_size=batch_size,
+                request_timeout=bulk_request_timeout,
+                raise_on_error=False,
+                raise_on_exception=True,
+            ):
+                if ok:
+                    total_uploaded += 1
+                    continue
+                errors.append(item)
+        except ConnectionTimeout as exc:
+            raise RuntimeError(
+                "Elasticsearch bulk upload timed out after "
+                f"{bulk_request_timeout}s for index {index_name!r}. "
+                "Increase gateways.database.elasticsearch.connection.bulk_request_timeout "
+                "or reduce --batch-size."
+            ) from exc
 
         if errors:
             sample = errors[:5]
