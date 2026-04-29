@@ -21,7 +21,9 @@ class FakeSession:
     async def __aexit__(self, *args: Any) -> None:
         return None
 
-    async def execute(self, statement: Any, params: dict[str, Any] | None = None) -> None:
+    async def execute(
+        self, statement: Any, params: dict[str, Any] | None = None
+    ) -> None:
         self.executed.append((str(statement), params))
 
     async def rollback(self) -> None:
@@ -38,7 +40,9 @@ def test_configured_schema_is_passed_to_asyncpg(
         return object()
 
     monkeypatch.setattr(db_client_impl, "create_async_engine", fake_create_async_engine)
-    monkeypatch.setattr(db_client_impl, "async_sessionmaker", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        db_client_impl, "async_sessionmaker", lambda *args, **kwargs: None
+    )
 
     client = DatabaseClientImpl(
         {
@@ -64,7 +68,9 @@ async def test_session_sets_configured_search_path(
 ) -> None:
     fake_session = FakeSession()
 
-    monkeypatch.setattr(db_client_impl, "create_async_engine", lambda *args, **kwargs: object())
+    monkeypatch.setattr(
+        db_client_impl, "create_async_engine", lambda *args, **kwargs: object()
+    )
     monkeypatch.setattr(
         db_client_impl,
         "async_sessionmaker",
