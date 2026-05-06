@@ -51,7 +51,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-mtbls-advanced-search = { path = "../metabolomics-advanced-search-core", editable = true }
+mtbls-advanced-search = { git = "https://gitlab.ebi.ac.uk/mtbls/metabolomics-advanced-search-core.git", rev = "dd421a8a47184fae43ef9505b419c60896faee0c" }
 
 [project.scripts]
 mhd-cli = "mhd_ws.run.cli.main:mhd_tool"
