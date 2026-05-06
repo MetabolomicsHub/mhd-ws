@@ -2,6 +2,7 @@ import pytest
 
 from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlanner
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
+from mhd_ws.domain.entities.search.advanced_core import Target
 from mhd_ws.domain.entities.search.dtos import (
     CharacteristicPairClauseDTO,
     ParameterPairClauseDTO,
@@ -41,7 +42,7 @@ def _build_gateway(client: FakeElasticsearchClient) -> AdvancedSearchGateway:
     return AdvancedSearchGateway(
         client=client,
         config=AdvancedSearchConfiguration(),
-        planner=QueryPlanner(PlannerConfig()),
+        planner=QueryPlanner(PlannerConfig(join_target=Target.METABOLITE)),
         index_registry=build_index_capabilities(),
         field_registry=FIELD_REGISTRY,
     )

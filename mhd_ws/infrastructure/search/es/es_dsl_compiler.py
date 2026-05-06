@@ -16,6 +16,14 @@ from mhd_ws.infrastructure.search.es.es_dsl_compiler_mhd_extension import (
 
 
 class EsDslCompiler:
+    """Stable facade that preserves the old API during compiler extraction.
+
+    Generic ES DSL compilation now lives in ``es_dsl_compiler_core`` while the
+    MHD-specific pair predicates and drill-down aggregations live in
+    ``es_dsl_compiler_mhd_extension``. Keeping this wrapper lets the gateway
+    and tests remain unchanged while the package boundary settles.
+    """
+
     def __init__(self, index_caps: IndexCapabilities) -> None:
         self._core = GenericEsDslCompiler(
             index_caps,

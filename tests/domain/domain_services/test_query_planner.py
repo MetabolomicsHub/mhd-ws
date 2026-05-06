@@ -23,7 +23,7 @@ from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlan
 
 @pytest.fixture
 def planner() -> QueryPlanner:
-    return QueryPlanner(PlannerConfig())
+    return QueryPlanner(PlannerConfig(join_target=Target.METABOLITE))
 
 
 def _dataset_term_clause(**kwargs) -> TermClauseSpec:
@@ -114,6 +114,7 @@ class TestStagePlanning:
         custom_planner = QueryPlanner(
             PlannerConfig(
                 primary_index_key="custom-dataset-index",
+                join_target=Target.METABOLITE,
                 join_index_key="custom-metabolite-index",
                 query_text_field_key="dataset.custom_search_text",
                 join_output_field_key="study_id",
