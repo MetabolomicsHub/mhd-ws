@@ -1,8 +1,11 @@
 import pytest
 
-from mhd_ws.domain.domain_services.query_planner import QueryPlanner
+from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlanner
 from mhd_ws.domain.entities.search.index_search_spec import (
+    CharacteristicPairClauseSpec,
+    DescriptorClauseSpec,
     FieldRef,
+    ParameterPairClauseSpec,
     SearchSpec,
     Target,
     TermClauseSpec,
@@ -24,7 +27,7 @@ from mhd_ws.domain.entities.search.stages import (
 
 @pytest.fixture
 def planner() -> QueryPlanner:
-    return QueryPlanner()
+    return QueryPlanner(PlannerConfig())
 
 
 def _dataset_term_clause(**kwargs) -> TermClauseSpec:
@@ -82,6 +85,65 @@ class TestStagePlanning:
         ds_stage = plan.stages[1]
         assert isinstance(met_stage, MetaboliteIdStage)
         assert isinstance(ds_stage, DatasetSearchStage)
+
+    @pytest.mark.parametrize(
+        ("clause", "expected_kind"),
+        [
+            (
+                ParameterPairClauseSpec(type_name="scan polarity", values=["positive"]),
+                "PARAMETER_PAIR",
+            ),
+            (
+                DescriptorClauseSpec(relationship="has_role", names=["lipid"]),
+                "DESCRIPTOR",
+            ),
+            (
+                CharacteristicPairClauseSpec(type_name="cell line", values=["MCF7"]),
+                "CHARACTERISTIC_PAIR",
+            ),
+        ],
+    )
+    def test_mhd_specific_clauses_stay_on_primary_stage(
+        self, planner: QueryPlanner, clause: object, expected_kind: str
+    ) -> None:
+        spec = SearchSpec(clauses=[clause])
+        plan = planner.plan(spec)
+
+        assert len(plan.stages) == 1
+        ds_stage = plan.stages[0]
+        assert isinstance(ds_stage, DatasetSearchStage)
+        assert ds_stage.dataset_predicate.kind == expected_kind
+
+    def test_planner_uses_configured_field_and_index_keys(self) -> None:
+        custom_planner = QueryPlanner(
+            PlannerConfig(
+                primary_index_key="custom-dataset-index",
+                join_index_key="custom-metabolite-index",
+                query_text_field_key="dataset.custom_search_text",
+                join_output_field_key="study_id",
+            )
+        )
+        spec = SearchSpec(
+            query_text="proteomics",
+            clauses=[_metabolite_term_clause()],
+        )
+
+        plan = custom_planner.plan(spec)
+
+        met_stage = plan.stages[0]
+        ds_stage = plan.stages[1]
+        assert isinstance(met_stage, MetaboliteIdStage)
+        assert isinstance(ds_stage, DatasetSearchStage)
+        assert met_stage.index_key == "custom-metabolite-index"
+        assert met_stage.output.field_key == "study_id"
+        assert ds_stage.index_key == "custom-dataset-index"
+        assert ds_stage.constraints[0].from_stage_id == met_stage.id
+        assert plan.final_stage_id == ds_stage.id
+
+        assert isinstance(ds_stage.dataset_predicate, AndExpr)
+        query_text_predicate = ds_stage.dataset_predicate.children[-1]
+        assert isinstance(query_text_predicate, TermMatchPredicate)
+        assert query_text_predicate.field_key == "dataset.custom_search_text"
 
 
 class TestPredicateGeneration:

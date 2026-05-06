@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from mhd_ws.domain.entities.search.index_search_spec import (
     CharacteristicPairClauseSpec,
     ComparatorClauseSpec,
@@ -26,13 +28,26 @@ from mhd_ws.domain.entities.search.predicate_tree import (
 )
 from mhd_ws.domain.entities.search.stages import (
     DatasetIdConstraint,
+    DatasetIdSetOutput,
     DatasetSearchStage,
     MetaboliteIdStage,
     QueryPlan,
 )
 
 
+class PlannerConfig(BaseModel):
+    primary_target: Target = Target.DATASET
+    primary_index_key: str = "ms-dataset-index"
+    join_target: Target | None = Target.METABOLITE
+    join_index_key: str | None = "metabolite-index"
+    query_text_field_key: str | None = "dataset.search_text"
+    join_output_field_key: str = "dataset_id"
+
+
 class QueryPlanner:
+    def __init__(self, config: PlannerConfig | None = None) -> None:
+        self._config = config or PlannerConfig()
+
     def plan(self, spec: SearchSpec) -> QueryPlan:
         dataset_clauses: list[FieldClauseSpec] = []
         metabolite_clauses: list[FieldClauseSpec] = []
@@ -47,18 +62,24 @@ class QueryPlanner:
                 ),
             ):
                 dataset_clauses.append(clause)
-            elif clause.field.target == Target.DATASET:
+            elif clause.field.target == self._config.primary_target:
                 dataset_clauses.append(clause)
-            else:
+            elif (
+                self._config.join_target is not None
+                and clause.field.target == self._config.join_target
+            ):
                 metabolite_clauses.append(clause)
+            else:
+                dataset_clauses.append(clause)
 
         dataset_predicates = self._compile_clauses(
             dataset_clauses, spec.inter_field_combiner
         )
 
-        if spec.query_text:
+        if spec.query_text and self._config.query_text_field_key:
             qt_pred = TermMatchPredicate(
-                field_key="dataset.search_text", value=spec.query_text
+                field_key=self._config.query_text_field_key,
+                value=spec.query_text,
             )
             if dataset_predicates.kind == "AND":
                 dataset_predicates = AndExpr(
@@ -67,19 +88,27 @@ class QueryPlanner:
             else:
                 dataset_predicates = AndExpr(children=[dataset_predicates, qt_pred])
 
-        if metabolite_clauses:
+        if metabolite_clauses and self._config.join_index_key is not None:
             met_predicate = self._compile_clauses(
                 metabolite_clauses, spec.inter_field_combiner
             )
-            met_stage = MetaboliteIdStage(metabolite_predicate=met_predicate)
-            ds_stage = DatasetSearchStage(
-                dataset_predicate=dataset_predicates,
-                constraints=[DatasetIdConstraint()],
+            met_stage = MetaboliteIdStage(
+                index_key=self._config.join_index_key,
+                metabolite_predicate=met_predicate,
+                output=DatasetIdSetOutput(field_key=self._config.join_output_field_key),
             )
-            return QueryPlan(stages=[met_stage, ds_stage])
+            ds_stage = DatasetSearchStage(
+                index_key=self._config.primary_index_key,
+                dataset_predicate=dataset_predicates,
+                constraints=[DatasetIdConstraint(from_stage_id=met_stage.id)],
+            )
+            return QueryPlan(stages=[met_stage, ds_stage], final_stage_id=ds_stage.id)
 
-        ds_stage = DatasetSearchStage(dataset_predicate=dataset_predicates)
-        return QueryPlan(stages=[ds_stage])
+        ds_stage = DatasetSearchStage(
+            index_key=self._config.primary_index_key,
+            dataset_predicate=dataset_predicates,
+        )
+        return QueryPlan(stages=[ds_stage], final_stage_id=ds_stage.id)
 
     def _compile_clauses(
         self, clauses: list[FieldClauseSpec], inter_combiner: str

@@ -2,9 +2,12 @@ import pytest
 
 from mhd_ws.domain.entities.search.predicate_tree import (
     AndExpr,
+    CharacteristicPairPredicate,
+    DescriptorPredicate,
     ExactMatchPredicate,
     NotExpr,
     OrExpr,
+    ParameterPairPredicate,
     PhraseMatchPredicate,
     RangePredicate,
     TermMatchPredicate,
@@ -78,6 +81,90 @@ class TestLeafPredicates:
         pred = RangePredicate(field_key="dataset.title", op="EQ", value=42)
         result = dataset_compiler.compile_query(pred)
         assert result == {"range": {"study.title": {"gte": 42, "lte": 42}}}
+
+    def test_parameter_pair_or(self, ms_dataset_compiler: EsDslCompiler) -> None:
+        pred = ParameterPairPredicate(
+            type_name="scan polarity",
+            values=["positive", "negative"],
+            combine_values="OR",
+        )
+        result = ms_dataset_compiler.compile_query(pred)
+        assert result == {
+            "nested": {
+                "path": "parameter_groups",
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "term": {
+                                    "parameter_groups.type_name": "scan polarity"
+                                }
+                            },
+                            {
+                                "terms": {
+                                    "parameter_groups.values": [
+                                        "positive",
+                                        "negative",
+                                    ]
+                                }
+                            },
+                        ]
+                    }
+                },
+            }
+        }
+
+    def test_descriptor_and(self, ms_dataset_compiler: EsDslCompiler) -> None:
+        pred = DescriptorPredicate(
+            relationship="has_role",
+            names=["lipid", "steroid"],
+            combine_names="AND",
+        )
+        result = ms_dataset_compiler.compile_query(pred)
+        assert result == {
+            "nested": {
+                "path": "descriptors",
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "term": {
+                                    "descriptors.relationship": "has_role"
+                                }
+                            },
+                            {"term": {"descriptors.name": "lipid"}},
+                            {"term": {"descriptors.name": "steroid"}},
+                        ]
+                    }
+                },
+            }
+        }
+
+    def test_characteristic_pair_single_value(
+        self, ms_dataset_compiler: EsDslCompiler
+    ) -> None:
+        pred = CharacteristicPairPredicate(
+            type_name="cell line",
+            values=["MCF7"],
+        )
+        result = ms_dataset_compiler.compile_query(pred)
+        assert result == {
+            "nested": {
+                "path": "characteristic_groups",
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "term": {
+                                    "characteristic_groups.type_name": "cell line"
+                                }
+                            },
+                            {"term": {"characteristic_groups.values": "MCF7"}},
+                        ]
+                    }
+                },
+            }
+        }
 
 
 class TestNestedWrapping:
@@ -206,5 +293,59 @@ class TestCompositeAgg:
                     "size": 500,
                     "sources": [{"dataset_id": {"terms": {"field": "dataset_id"}}}],
                 }
+            }
+        }
+
+
+class TestMhdSpecificFacetAggs:
+    def test_parameter_group_aggs(self, ms_dataset_compiler: EsDslCompiler) -> None:
+        result = ms_dataset_compiler.compile_parameter_group_aggs(
+            ["scan polarity"], facet_size=10
+        )
+        assert result == {
+            "param__scan polarity": {
+                "nested": {"path": "parameter_groups"},
+                "aggs": {
+                    "by_type": {
+                        "filter": {
+                            "term": {"parameter_groups.type_name": "scan polarity"}
+                        },
+                        "aggs": {
+                            "values": {
+                                "terms": {
+                                    "field": "parameter_groups.values",
+                                    "size": 10,
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        }
+
+    def test_characteristic_group_aggs(
+        self, ms_dataset_compiler: EsDslCompiler
+    ) -> None:
+        result = ms_dataset_compiler.compile_characteristic_group_aggs(
+            ["cell line"], facet_size=10
+        )
+        assert result == {
+            "char__cell line": {
+                "nested": {"path": "characteristic_groups"},
+                "aggs": {
+                    "by_type": {
+                        "filter": {
+                            "term": {"characteristic_groups.type_name": "cell line"}
+                        },
+                        "aggs": {
+                            "values": {
+                                "terms": {
+                                    "field": "characteristic_groups.values",
+                                    "size": 10,
+                                }
+                            }
+                        },
+                    }
+                },
             }
         }
