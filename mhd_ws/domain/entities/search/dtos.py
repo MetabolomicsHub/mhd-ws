@@ -4,7 +4,7 @@ from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from mhd_ws.domain.entities.search.types import (
+from mhd_ws.domain.entities.search.advanced_core.types import (
     ComparatorOp,
     InterFieldCombiner,
     IntraFieldCombiner,

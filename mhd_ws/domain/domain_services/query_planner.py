@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from mhd_ws.domain.entities.search.index_search_spec import (
+from mhd_ws.domain.entities.search.advanced_core.spec import (
     CharacteristicPairClauseSpec,
     ComparatorClauseSpec,
     DescriptorClauseSpec,
@@ -13,7 +13,7 @@ from mhd_ws.domain.entities.search.index_search_spec import (
     TermClauseSpec,
     ValueType,
 )
-from mhd_ws.domain.entities.search.predicate_tree import (
+from mhd_ws.domain.entities.search.advanced_core.predicates import (
     AndExpr,
     BoolExpr,
     CharacteristicPairPredicate,
@@ -26,7 +26,7 @@ from mhd_ws.domain.entities.search.predicate_tree import (
     RangePredicate,
     TermMatchPredicate,
 )
-from mhd_ws.domain.entities.search.stages import (
+from mhd_ws.domain.entities.search.advanced_core.plan import (
     DatasetIdConstraint,
     DatasetIdSetOutput,
     DatasetSearchStage,

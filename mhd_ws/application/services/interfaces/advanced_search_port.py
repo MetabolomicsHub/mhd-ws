@@ -8,7 +8,7 @@ from mhd_ws.domain.entities.search.index_search import (
     PageModel,
     SortModel,
 )
-from mhd_ws.domain.entities.search.index_search_spec import SearchSpec
+from mhd_ws.domain.entities.search.advanced_core.spec import SearchSpec
 
 
 class AdvancedSearchPort(abc.ABC):

@@ -15,19 +15,19 @@ from mhd_ws.domain.entities.search.index_search import (
     PageModel,
     SortModel,
 )
-from mhd_ws.domain.entities.search.index_search_spec import (
+from mhd_ws.domain.entities.search.advanced_core.spec import (
     CharacteristicPairClauseSpec,
     ParameterPairClauseSpec,
     SearchSpec,
 )
-from mhd_ws.domain.entities.search.registries.models import (
-    FieldRegistry,
-    IndexCapabilitiesRegistry,
-)
-from mhd_ws.domain.entities.search.stages import (
+from mhd_ws.domain.entities.search.advanced_core.plan import (
     DatasetSearchStage,
     MetaboliteIdStage,
     QueryPlan,
+)
+from mhd_ws.domain.entities.search.advanced_core.registries import (
+    FieldRegistry,
+    IndexCapabilitiesRegistry,
 )
 from mhd_ws.infrastructure.search.es.es_configuration import (
     AdvancedSearchConfiguration,

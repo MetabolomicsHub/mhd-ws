@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from mhd_ws.domain.entities.search.predicate_tree import (
+from mhd_ws.domain.entities.search.advanced_core.predicates import (
     AndExpr,
     BoolExpr,
     CharacteristicPairPredicate,
@@ -16,7 +16,10 @@ from mhd_ws.domain.entities.search.predicate_tree import (
     RangePredicate,
     TermMatchPredicate,
 )
-from mhd_ws.domain.entities.search.registries.models import FieldDef, IndexCapabilities
+from mhd_ws.domain.entities.search.advanced_core.registries import (
+    FieldDef,
+    IndexCapabilities,
+)
 
 
 class EsDslCompiler:

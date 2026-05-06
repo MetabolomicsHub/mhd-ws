@@ -8,7 +8,7 @@ from mhd_ws.domain.entities.search.dtos import (
     SearchRequestDTO,
     TermClauseDTO,
 )
-from mhd_ws.domain.entities.search.index_search_spec import (
+from mhd_ws.domain.entities.search.advanced_core.spec import (
     CharacteristicPairClauseSpec,
     ComparatorClauseSpec,
     DescriptorClauseSpec,
@@ -18,7 +18,10 @@ from mhd_ws.domain.entities.search.index_search_spec import (
     SearchSpec,
     TermClauseSpec,
 )
-from mhd_ws.domain.entities.search.registries.models import FieldDef, FieldRegistry
+from mhd_ws.domain.entities.search.advanced_core.registries import (
+    FieldDef,
+    FieldRegistry,
+)
 
 
 class SearchSpecResolver:

@@ -5,7 +5,7 @@ from mhd_ws.application.services.interfaces.async_task.conection import (
 )
 from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlanner
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
-from mhd_ws.domain.entities.search.index_search_spec import Target
+from mhd_ws.domain.entities.search.advanced_core.spec import Target
 from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
 from mhd_ws.domain.entities.search.registries.index_capability_registry import (
     build_index_capabilities,
