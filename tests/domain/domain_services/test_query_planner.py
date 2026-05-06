@@ -1,28 +1,24 @@
 import pytest
 
-from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlanner
-from mhd_ws.domain.entities.search.index_search_spec import (
+from mhd_ws.domain.entities.search.advanced_core import (
+    AndExpr,
     CharacteristicPairClauseSpec,
+    DatasetSearchStage,
     DescriptorClauseSpec,
+    ExactMatchPredicate,
     FieldRef,
+    MetaboliteIdStage,
+    NotExpr,
+    OrExpr,
     ParameterPairClauseSpec,
+    PhraseMatchPredicate,
     SearchSpec,
     Target,
     TermClauseSpec,
+    TermMatchPredicate,
     ValueType,
 )
-from mhd_ws.domain.entities.search.predicate_tree import (
-    AndExpr,
-    ExactMatchPredicate,
-    NotExpr,
-    OrExpr,
-    PhraseMatchPredicate,
-    TermMatchPredicate,
-)
-from mhd_ws.domain.entities.search.stages import (
-    DatasetSearchStage,
-    MetaboliteIdStage,
-)
+from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlanner
 
 
 @pytest.fixture

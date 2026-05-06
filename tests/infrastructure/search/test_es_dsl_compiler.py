@@ -1,6 +1,6 @@
 import pytest
 
-from mhd_ws.domain.entities.search.predicate_tree import (
+from mhd_ws.domain.entities.search.advanced_core import (
     AndExpr,
     CharacteristicPairPredicate,
     DescriptorPredicate,
@@ -16,6 +16,7 @@ from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGIST
 from mhd_ws.domain.entities.search.registries.index_capability_registry import (
     INDEX_CAPABILITIES,
 )
+from mhd_ws.infrastructure.search.es.es_dsl_compiler_core import GenericEsDslCompiler
 from mhd_ws.infrastructure.search.es.es_dsl_compiler import EsDslCompiler
 
 
@@ -295,6 +296,30 @@ class TestCompositeAgg:
                 }
             }
         }
+
+
+class TestGenericCompilerBoundary:
+    def test_generic_compiler_handles_generic_predicates_only(self) -> None:
+        caps = INDEX_CAPABILITIES.get_index_strict("dataset-index")
+        compiler = GenericEsDslCompiler(caps)
+
+        result = compiler.compile_query(
+            TermMatchPredicate(field_key="dataset.title", value="cancer")
+        )
+
+        assert result == {"match": {"study.title": "cancer"}}
+
+    def test_generic_compiler_rejects_mhd_specific_predicates(self) -> None:
+        caps = INDEX_CAPABILITIES.get_index_strict("ms-dataset-index")
+        compiler = GenericEsDslCompiler(caps)
+
+        with pytest.raises(TypeError, match="Unknown expression type"):
+            compiler.compile_query(
+                ParameterPairPredicate(
+                    type_name="scan polarity",
+                    values=["positive"],
+                )
+            )
 
 
 class TestMhdSpecificFacetAggs:

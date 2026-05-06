@@ -1,6 +1,10 @@
 import pytest
 
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
+from mhd_ws.domain.entities.search.advanced_core import (
+    Target,
+    ValueType,
+)
 from mhd_ws.domain.entities.search.dtos import (
     CharacteristicPairClauseDTO,
     ComparatorClauseDTO,
@@ -8,10 +12,6 @@ from mhd_ws.domain.entities.search.dtos import (
     ParameterPairClauseDTO,
     SearchRequestDTO,
     TermClauseDTO,
-)
-from mhd_ws.domain.entities.search.index_search_spec import (
-    Target,
-    ValueType,
 )
 from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
 

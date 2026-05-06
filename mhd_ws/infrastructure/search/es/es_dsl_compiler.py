@@ -1,378 +1,62 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
-from mhd_ws.domain.entities.search.advanced_core.predicates import (
-    AndExpr,
-    BoolExpr,
-    CharacteristicPairPredicate,
-    DescriptorPredicate,
-    ExactMatchPredicate,
-    NotExpr,
-    OrExpr,
-    ParameterPairPredicate,
-    PhraseMatchPredicate,
-    RangePredicate,
-    TermMatchPredicate,
-)
+from mhd_ws.domain.entities.search.advanced_core.predicates import BoolExpr
 from mhd_ws.domain.entities.search.advanced_core.registries import (
     FieldDef,
     IndexCapabilities,
+)
+from mhd_ws.infrastructure.search.es.es_dsl_compiler_core import (
+    GenericEsDslCompiler,
+)
+from mhd_ws.infrastructure.search.es.es_dsl_compiler_mhd_extension import (
+    MhdDslCompilerExtension,
 )
 
 
 class EsDslCompiler:
     def __init__(self, index_caps: IndexCapabilities) -> None:
-        self._caps = index_caps
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+        self._core = GenericEsDslCompiler(
+            index_caps,
+            extensions=(MhdDslCompilerExtension(),),
+        )
+        self._mhd_extension = MhdDslCompilerExtension()
 
     def compile_query(self, expr: BoolExpr) -> dict[str, Any]:
-        return self._compile(expr)
+        return self._core.compile_query(expr)
 
     def compile_pagination(self, page_current: int, page_size: int) -> dict[str, Any]:
-        return {
-            "from": (page_current - 1) * page_size,
-            "size": page_size,
-        }
+        return self._core.compile_pagination(page_current, page_size)
 
     def compile_sort(self, field: str, direction: str) -> list[dict[str, Any]]:
-        return [{field: {"order": direction}}]
+        return self._core.compile_sort(field, direction)
 
     def compile_facet_aggs(
         self, facet_fields: list[FieldDef], facet_size: int = 25
     ) -> dict[str, Any]:
-        aggs: dict[str, Any] = {}
-        for field in facet_fields:
-            if not field.facet_key or not field.facet_type:
-                continue
-            cap = self._caps.get_field(field.field_key)
-            if cap is None:
-                continue
-            if field.facet_type == "date_histogram":
-                aggs[field.facet_key] = {
-                    "date_histogram": {
-                        "field": cap.es_path,
-                        "calendar_interval": "year",
-                        "format": "yyyy",
-                        "order": {"_key": "desc"},
-                        "min_doc_count": 1,
-                    }
-                }
-            elif field.facet_type == "range":
-                aggs[field.facet_key] = {
-                    "date_range": {
-                        "field": cap.es_path,
-                        "ranges": self._build_year_ranges(),
-                    }
-                }
-            elif field.facet_type == "value":
-                terms_agg = {"terms": {"field": cap.es_path, "size": facet_size}}
-                if cap.nested:
-                    if cap.nested.facet_filter:
-                        aggs[field.facet_key] = {
-                            "nested": {"path": cap.nested.path},
-                            "aggs": {
-                                "filtered": {
-                                    "filter": cap.nested.facet_filter,
-                                    "aggs": {"values": terms_agg},
-                                }
-                            },
-                        }
-                    else:
-                        aggs[field.facet_key] = {
-                            "nested": {"path": cap.nested.path},
-                            "aggs": {"values": terms_agg},
-                        }
-                else:
-                    aggs[field.facet_key] = terms_agg
-        return aggs
-
-    @staticmethod
-    def _build_year_ranges() -> list[dict]:
-        current_year = datetime.now().year
-        ranges: list[dict] = []
-        for year in range(current_year, current_year - 20, -1):
-            ranges.append(
-                {
-                    "from": f"{year}-01-01",
-                    "to": f"{year + 1}-01-01",
-                    "key": str(year),
-                }
-            )
-        ranges.append(
-            {"to": f"{current_year - 19}-01-01", "key": f"Before {current_year - 19}"}
-        )
-        return ranges
+        return self._core.compile_facet_aggs(facet_fields, facet_size)
 
     def compile_metabolite_composite_agg(
         self, dataset_id_es_path: str, page_size: int
     ) -> dict[str, Any]:
-        return {
-            "dataset_ids": {
-                "composite": {
-                    "size": page_size,
-                    "sources": [
-                        {"dataset_id": {"terms": {"field": dataset_id_es_path}}}
-                    ],
-                }
-            }
-        }
-
-    # ------------------------------------------------------------------
-    # Recursive compilation
-    # ------------------------------------------------------------------
-
-    def _compile(self, expr: BoolExpr) -> dict[str, Any]:
-        if isinstance(expr, AndExpr):
-            return self._compile_and(expr)
-        if isinstance(expr, OrExpr):
-            return self._compile_or(expr)
-        if isinstance(expr, NotExpr):
-            return self._compile_not(expr)
-        if isinstance(expr, TermMatchPredicate):
-            return self._compile_term_match(expr)
-        if isinstance(expr, PhraseMatchPredicate):
-            return self._compile_phrase_match(expr)
-        if isinstance(expr, ExactMatchPredicate):
-            return self._compile_exact_match(expr)
-        if isinstance(expr, RangePredicate):
-            return self._compile_range(expr)
-        if isinstance(expr, ParameterPairPredicate):
-            return self._compile_parameter_pair(expr)
-        if isinstance(expr, DescriptorPredicate):
-            return self._compile_descriptor(expr)
-        if isinstance(expr, CharacteristicPairPredicate):
-            return self._compile_characteristic_pair(expr)
-        raise TypeError(f"Unknown expression type: {type(expr)}")
-
-    def _compile_and(self, expr: AndExpr) -> dict[str, Any]:
-        if not expr.children:
-            return {"match_all": {}}
-
-        must: list[dict[str, Any]] = []
-        filter_: list[dict[str, Any]] = []
-
-        for child in expr.children:
-            compiled = self._compile(child)
-            if self._is_scored(child):
-                must.append(compiled)
-            else:
-                filter_.append(compiled)
-
-        clause: dict[str, Any] = {}
-        if must:
-            clause["must"] = must
-        if filter_:
-            clause["filter"] = filter_
-        return {"bool": clause}
-
-    def _compile_or(self, expr: OrExpr) -> dict[str, Any]:
-        should = [self._compile(child) for child in expr.children]
-        return {"bool": {"should": should, "minimum_should_match": 1}}
-
-    def _compile_not(self, expr: NotExpr) -> dict[str, Any]:
-        return {"bool": {"must_not": [self._compile(expr.child)]}}
-
-    def _compile_term_match(self, pred: TermMatchPredicate) -> dict[str, Any]:
-        cap = self._caps.get_field(pred.field_key)
-        es_path = cap.es_path if cap else pred.field_key
-        query: dict[str, Any] = {"match": {es_path: pred.value}}
-        return self._maybe_nested(pred.field_key, query)
-
-    def _compile_phrase_match(self, pred: PhraseMatchPredicate) -> dict[str, Any]:
-        cap = self._caps.get_field(pred.field_key)
-        es_path = cap.es_path if cap else pred.field_key
-        query: dict[str, Any] = {"match_phrase": {es_path: pred.value}}
-        return self._maybe_nested(pred.field_key, query)
-
-    def _compile_exact_match(self, pred: ExactMatchPredicate) -> dict[str, Any]:
-        cap = self._caps.get_field(pred.field_key)
-        if cap and cap.exact_es_path:
-            es_path = cap.exact_es_path
-        elif cap:
-            es_path = cap.es_path
-        else:
-            es_path = pred.field_key
-        query: dict[str, Any] = {"term": {es_path: pred.value}}
-        return self._maybe_nested(pred.field_key, query)
-
-    def _compile_range(self, pred: RangePredicate) -> dict[str, Any]:
-        cap = self._caps.get_field(pred.field_key)
-        es_path = cap.es_path if cap else pred.field_key
-        op = pred.op
-        if op == "EQ":
-            range_clause = {"gte": pred.value, "lte": pred.value}
-        else:
-            range_clause = {op.lower(): pred.value}
-        query: dict[str, Any] = {"range": {es_path: range_clause}}
-        return self._maybe_nested(pred.field_key, query)
-
-    def _compile_parameter_pair(self, pred: ParameterPairPredicate) -> dict[str, Any]:
-        type_cap = self._caps.get_field("dataset.parameter_groups.type_name")
-        values_cap = self._caps.get_field("dataset.parameter_groups.values")
-        type_path = type_cap.es_path if type_cap else "parameter_groups.type_name"
-        values_path = values_cap.es_path if values_cap else "parameter_groups.values"
-
-        type_filter: dict[str, Any] = {"term": {type_path: pred.type_name}}
-
-        if not pred.values:
-            inner: dict[str, Any] = {"bool": {"filter": [type_filter]}}
-        elif len(pred.values) == 1:
-            inner = {
-                "bool": {
-                    "filter": [type_filter, {"term": {values_path: pred.values[0]}}]
-                }
-            }
-        elif pred.combine_values == "AND":
-            inner = {
-                "bool": {
-                    "filter": [type_filter]
-                    + [{"term": {values_path: v}} for v in pred.values]
-                }
-            }
-        else:
-            inner = {
-                "bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}
-            }
-
-        return {"nested": {"path": "parameter_groups", "query": inner}}
-
-    def _compile_descriptor(self, pred: DescriptorPredicate) -> dict[str, Any]:
-        rel_cap = self._caps.get_field("dataset.descriptors.relationship")
-        name_cap = self._caps.get_field("dataset.descriptors.name")
-        rel_path = rel_cap.es_path if rel_cap else "descriptors.relationship"
-        name_path = (
-            name_cap.exact_es_path
-            if name_cap and name_cap.exact_es_path
-            else (name_cap.es_path if name_cap else "descriptors.name")
+        return self._core.compile_id_terms_composite_agg(
+            agg_name="dataset_ids",
+            source_name="dataset_id",
+            field_es_path=dataset_id_es_path,
+            page_size=page_size,
         )
-
-        rel_filter: dict[str, Any] = {"term": {rel_path: pred.relationship}}
-
-        if not pred.names:
-            inner: dict[str, Any] = {"bool": {"filter": [rel_filter]}}
-        elif len(pred.names) == 1:
-            inner = {
-                "bool": {"filter": [rel_filter, {"term": {name_path: pred.names[0]}}]}
-            }
-        elif pred.combine_names == "AND":
-            inner = {
-                "bool": {
-                    "filter": [rel_filter]
-                    + [{"term": {name_path: n}} for n in pred.names]
-                }
-            }
-        else:
-            inner = {
-                "bool": {"filter": [rel_filter, {"terms": {name_path: pred.names}}]}
-            }
-
-        return {"nested": {"path": "descriptors", "query": inner}}
-
-    def _compile_characteristic_pair(
-        self, pred: CharacteristicPairPredicate
-    ) -> dict[str, Any]:
-        type_cap = self._caps.get_field("dataset.characteristic_groups.type_name")
-        values_cap = self._caps.get_field("dataset.characteristic_groups.values")
-        type_path = type_cap.es_path if type_cap else "characteristic_groups.type_name"
-        values_path = (
-            values_cap.es_path if values_cap else "characteristic_groups.values"
-        )
-
-        type_filter: dict[str, Any] = {"term": {type_path: pred.type_name}}
-
-        if not pred.values:
-            inner: dict[str, Any] = {"bool": {"filter": [type_filter]}}
-        elif len(pred.values) == 1:
-            inner = {
-                "bool": {
-                    "filter": [type_filter, {"term": {values_path: pred.values[0]}}]
-                }
-            }
-        elif pred.combine_values == "AND":
-            inner = {
-                "bool": {
-                    "filter": [type_filter]
-                    + [{"term": {values_path: v}} for v in pred.values]
-                }
-            }
-        else:
-            inner = {
-                "bool": {"filter": [type_filter, {"terms": {values_path: pred.values}}]}
-            }
-
-        return {"nested": {"path": "characteristic_groups", "query": inner}}
 
     def compile_characteristic_group_aggs(
         self, type_names: list[str], facet_size: int = 25
     ) -> dict[str, Any]:
-        """Per-type drill-down aggs for characteristic_groups: nested → filter(type_name) → terms(values)."""
-        type_cap = self._caps.get_field("dataset.characteristic_groups.type_name")
-        values_cap = self._caps.get_field("dataset.characteristic_groups.values")
-        type_path = type_cap.es_path if type_cap else "characteristic_groups.type_name"
-        values_path = (
-            values_cap.es_path if values_cap else "characteristic_groups.values"
+        return self._mhd_extension.compile_characteristic_group_aggs(
+            self._core, type_names, facet_size
         )
-
-        aggs: dict[str, Any] = {}
-        for type_name in type_names:
-            key = f"char__{type_name}"
-            aggs[key] = {
-                "nested": {"path": "characteristic_groups"},
-                "aggs": {
-                    "by_type": {
-                        "filter": {"term": {type_path: type_name}},
-                        "aggs": {
-                            "values": {
-                                "terms": {"field": values_path, "size": facet_size}
-                            }
-                        },
-                    }
-                },
-            }
-        return aggs
 
     def compile_parameter_group_aggs(
         self, type_names: list[str], facet_size: int = 25
     ) -> dict[str, Any]:
-        """Per-type drill-down aggs: nested → filter(type_name) → terms(values)."""
-        type_cap = self._caps.get_field("dataset.parameter_groups.type_name")
-        values_cap = self._caps.get_field("dataset.parameter_groups.values")
-        type_path = type_cap.es_path if type_cap else "parameter_groups.type_name"
-        values_path = values_cap.es_path if values_cap else "parameter_groups.values"
-
-        aggs: dict[str, Any] = {}
-        for type_name in type_names:
-            key = f"param__{type_name}"
-            aggs[key] = {
-                "nested": {"path": "parameter_groups"},
-                "aggs": {
-                    "by_type": {
-                        "filter": {"term": {type_path: type_name}},
-                        "aggs": {
-                            "values": {
-                                "terms": {"field": values_path, "size": facet_size}
-                            }
-                        },
-                    }
-                },
-            }
-        return aggs
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    def _maybe_nested(self, field_key: str, query: dict[str, Any]) -> dict[str, Any]:
-        cap = self._caps.get_field(field_key)
-        if cap and cap.nested:
-            return {"nested": {"path": cap.nested.path, "query": query}}
-        return query
-
-    @staticmethod
-    def _is_scored(expr: BoolExpr) -> bool:
-        return isinstance(expr, (TermMatchPredicate, PhraseMatchPredicate))
+        return self._mhd_extension.compile_parameter_group_aggs(
+            self._core, type_names, facet_size
+        )
