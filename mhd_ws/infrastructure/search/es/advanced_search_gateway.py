@@ -21,9 +21,8 @@ from mhd_ws.domain.entities.search.advanced_core.spec import (
     SearchSpec,
 )
 from mhd_ws.domain.entities.search.advanced_core.plan import (
-    DatasetSearchStage,
-    MetaboliteIdStage,
-    QueryPlan,
+    IdCollectionStage,
+    SearchStage,
 )
 from mhd_ws.domain.entities.search.advanced_core.registries import (
     FieldRegistry,
@@ -75,11 +74,11 @@ class AdvancedSearchGateway(AdvancedSearchPort):
 
         dataset_ids: set[str] | None = None
         for stage in plan.stages:
-            if isinstance(stage, MetaboliteIdStage):
-                dataset_ids = await self._execute_metabolite_stage(stage)
-            elif isinstance(stage, DatasetSearchStage):
-                return await self._execute_dataset_stage(
-                    stage, plan, page, sort, dataset_ids, spec
+            if isinstance(stage, IdCollectionStage):
+                dataset_ids = await self._execute_id_collection_stage(stage)
+            elif isinstance(stage, SearchStage):
+                return await self._execute_search_stage(
+                    stage, page, sort, dataset_ids, spec
                 )
 
         return IndexSearchResult(request_id=str(uuid.uuid4()))
@@ -88,10 +87,10 @@ class AdvancedSearchGateway(AdvancedSearchPort):
     # Stage executors
     # ------------------------------------------------------------------
 
-    async def _execute_metabolite_stage(self, stage: MetaboliteIdStage) -> set[str]:
+    async def _execute_id_collection_stage(self, stage: IdCollectionStage) -> set[str]:
         index_caps = self._index_registry.get_index_strict(stage.index_key)
         compiler = EsDslCompiler(index_caps)
-        query = compiler.compile_query(stage.metabolite_predicate)
+        query = compiler.compile_query(stage.predicate)
 
         join_field = index_caps.get_field_strict(index_caps.join.dataset_id_field_key)
         dataset_id_es_path = join_field.es_path
@@ -129,13 +128,12 @@ class AdvancedSearchGateway(AdvancedSearchPort):
             if after_key is None:
                 break
 
-        logger.debug("Metabolite stage collected %d dataset IDs", len(collected_ids))
+        logger.debug("ID collection stage collected %d dataset IDs", len(collected_ids))
         return collected_ids
 
-    async def _execute_dataset_stage(
+    async def _execute_search_stage(
         self,
-        stage: DatasetSearchStage,
-        plan: QueryPlan,
+        stage: SearchStage,
         page: PageModel,
         sort: SortModel | None,
         dataset_ids: set[str] | None,
@@ -144,7 +142,7 @@ class AdvancedSearchGateway(AdvancedSearchPort):
         index_caps = self._index_registry.get_index_strict(stage.index_key)
         compiler = EsDslCompiler(index_caps)
 
-        query_dsl = compiler.compile_query(stage.dataset_predicate)
+        query_dsl = compiler.compile_query(stage.predicate)
 
         if dataset_ids is not None and stage.constraints:
             join_field = index_caps.get_field_strict(

@@ -9,9 +9,14 @@ from mhd_ws.domain.entities.search.advanced_core.plan import (
     DatasetIdConstraint,
     DatasetIdSetOutput,
     DatasetSearchStage,
+    IdCollectionStage,
+    IdInSetConstraint,
+    IdSetOutput,
     MetaboliteIdStage,
     QueryPlan,
     QueryStage,
+    SearchHitsOutput,
+    SearchStage,
 )
 
 __all__ = [
@@ -19,7 +24,12 @@ __all__ = [
     "DatasetIdConstraint",
     "DatasetIdSetOutput",
     "DatasetSearchStage",
+    "IdCollectionStage",
+    "IdInSetConstraint",
+    "IdSetOutput",
     "MetaboliteIdStage",
     "QueryPlan",
     "QueryStage",
+    "SearchHitsOutput",
+    "SearchStage",
 ]

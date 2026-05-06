@@ -3,16 +3,16 @@ import pytest
 from mhd_ws.domain.entities.search.advanced_core import (
     AndExpr,
     CharacteristicPairClauseSpec,
-    DatasetSearchStage,
     DescriptorClauseSpec,
     ExactMatchPredicate,
     FieldRef,
-    MetaboliteIdStage,
+    IdCollectionStage,
     NotExpr,
     OrExpr,
     ParameterPairClauseSpec,
     PhraseMatchPredicate,
     SearchSpec,
+    SearchStage,
     Target,
     TermClauseSpec,
     TermMatchPredicate,
@@ -60,7 +60,7 @@ class TestStagePlanning:
         plan = planner.plan(spec)
 
         assert len(plan.stages) == 1
-        assert isinstance(plan.stages[0], DatasetSearchStage)
+        assert isinstance(plan.stages[0], SearchStage)
         assert plan.stages[0].constraints == []
 
     def test_metabolite_only_two_stages(self, planner: QueryPlanner) -> None:
@@ -68,8 +68,8 @@ class TestStagePlanning:
         plan = planner.plan(spec)
 
         assert len(plan.stages) == 2
-        assert isinstance(plan.stages[0], MetaboliteIdStage)
-        assert isinstance(plan.stages[1], DatasetSearchStage)
+        assert isinstance(plan.stages[0], IdCollectionStage)
+        assert isinstance(plan.stages[1], SearchStage)
         assert len(plan.stages[1].constraints) == 1
 
     def test_mixed_clauses_partitioned(self, planner: QueryPlanner) -> None:
@@ -79,8 +79,8 @@ class TestStagePlanning:
         assert len(plan.stages) == 2
         met_stage = plan.stages[0]
         ds_stage = plan.stages[1]
-        assert isinstance(met_stage, MetaboliteIdStage)
-        assert isinstance(ds_stage, DatasetSearchStage)
+        assert isinstance(met_stage, IdCollectionStage)
+        assert isinstance(ds_stage, SearchStage)
 
     @pytest.mark.parametrize(
         ("clause", "expected_kind"),
@@ -107,8 +107,8 @@ class TestStagePlanning:
 
         assert len(plan.stages) == 1
         ds_stage = plan.stages[0]
-        assert isinstance(ds_stage, DatasetSearchStage)
-        assert ds_stage.dataset_predicate.kind == expected_kind
+        assert isinstance(ds_stage, SearchStage)
+        assert ds_stage.predicate.kind == expected_kind
 
     def test_planner_uses_configured_field_and_index_keys(self) -> None:
         custom_planner = QueryPlanner(
@@ -129,16 +129,16 @@ class TestStagePlanning:
 
         met_stage = plan.stages[0]
         ds_stage = plan.stages[1]
-        assert isinstance(met_stage, MetaboliteIdStage)
-        assert isinstance(ds_stage, DatasetSearchStage)
+        assert isinstance(met_stage, IdCollectionStage)
+        assert isinstance(ds_stage, SearchStage)
         assert met_stage.index_key == "custom-metabolite-index"
         assert met_stage.output.field_key == "study_id"
         assert ds_stage.index_key == "custom-dataset-index"
         assert ds_stage.constraints[0].from_stage_id == met_stage.id
         assert plan.final_stage_id == ds_stage.id
 
-        assert isinstance(ds_stage.dataset_predicate, AndExpr)
-        query_text_predicate = ds_stage.dataset_predicate.children[-1]
+        assert isinstance(ds_stage.predicate, AndExpr)
+        query_text_predicate = ds_stage.predicate.children[-1]
         assert isinstance(query_text_predicate, TermMatchPredicate)
         assert query_text_predicate.field_key == "dataset.custom_search_text"
 
@@ -149,8 +149,8 @@ class TestPredicateGeneration:
         plan = planner.plan(spec)
 
         ds_stage = plan.stages[0]
-        assert isinstance(ds_stage, DatasetSearchStage)
-        pred = ds_stage.dataset_predicate
+        assert isinstance(ds_stage, SearchStage)
+        pred = ds_stage.predicate
         # Empty clauses produce AndExpr([]), then query_text is appended as child
         assert isinstance(pred, AndExpr)
         assert len(pred.children) == 1
@@ -165,7 +165,7 @@ class TestPredicateGeneration:
             clauses=[_dataset_term_clause()],
         )
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, AndExpr)
         # Should have the clause predicate + query_text predicate
         assert len(pred.children) == 2
@@ -173,7 +173,7 @@ class TestPredicateGeneration:
     def test_negation_wrapping(self, planner: QueryPlanner) -> None:
         spec = SearchSpec(clauses=[_dataset_term_clause(negated=True)])
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, NotExpr)
 
     def test_auto_on_text_produces_term_match(self, planner: QueryPlanner) -> None:
@@ -190,7 +190,7 @@ class TestPredicateGeneration:
             ]
         )
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, TermMatchPredicate)
 
     def test_auto_on_keyword_produces_exact_match(self, planner: QueryPlanner) -> None:
@@ -209,13 +209,13 @@ class TestPredicateGeneration:
             ]
         )
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, ExactMatchPredicate)
 
     def test_phrase_match_mode(self, planner: QueryPlanner) -> None:
         spec = SearchSpec(clauses=[_dataset_term_clause(match="PHRASE")])
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, PhraseMatchPredicate)
 
     def test_multiple_terms_combined_with_or(self, planner: QueryPlanner) -> None:
@@ -228,13 +228,13 @@ class TestPredicateGeneration:
             ]
         )
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, OrExpr)
         assert len(pred.children) == 2
 
     def test_empty_clauses_produces_match_all(self, planner: QueryPlanner) -> None:
         spec = SearchSpec()
         plan = planner.plan(spec)
-        pred = plan.stages[0].dataset_predicate
+        pred = plan.stages[0].predicate
         assert isinstance(pred, AndExpr)
         assert pred.children == []

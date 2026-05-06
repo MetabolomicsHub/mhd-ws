@@ -29,3 +29,30 @@ Example JWT TOKEN
 ```
 eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJNZXRhYm9MaWdodHMiLCJhdWQiOiJodHRwczovL3d3dy5tZXRhYm9sb21pY3NodWIub3JnIiwiaWF0IjoxNjk5ODg2NTAwLCJleHAiOjE4OTk5NzI5MDB9.h9hNPcrh8aekGplPdLtvgkEzwPjUBb1TA8TVV-2pBdTofySS2dDsiW_e0HVVy2MqmEeuRiTpT6Wrc2U3XAnEmchy-58Md-UeIdVSNd1F6NW7z2ysHIG_j_g5_sJ4AIHH6U4fHmc8P7mXT8QO9jLU2XLkZ5RCoSioxkpPMjRjmvNr3ugBlDjr13jm-yEcvzdCFq4s4soypnmaYKBZv6ycvcOfb_q6a7qI_w3BQ2ii5kGND5t94VNwxLMF7IqcKlLtVKutD2D1PZKS_bdEu817_oIw8dSqzI00mJBDHjD5rszDkF_9UZAAKb_VxArBewZP955uwpz4t_lackqUs2tXww
 ```
+
+# Local Development Of `mtbls-advanced-search`
+
+`mhd-ws` depends on the shared advanced-search package `mtbls-advanced-search`.
+
+For normal reproducible usage, point the dependency at the Git repository in `pyproject.toml`:
+
+```toml
+[tool.uv.sources]
+mtbls-advanced-search = { git = "ssh://git@gitlab.com/<group>/<repo>.git", tag = "v0.1.0" }
+```
+
+When developing `mhd-ws` and the shared package together locally, temporarily switch that source to a local editable path:
+
+```toml
+[tool.uv.sources]
+mtbls-advanced-search = { path = "../metabolomics-advanced-search-core", editable = true }
+```
+
+After changing the source, reinstall or sync the environment so the active virtualenv picks up the new package location.
+
+Recommended workflow:
+
+1. Use the Git source for committed, shared, and CI-friendly configuration.
+2. Switch to the local path source when making unpushed changes in `mtbls-advanced-search`.
+3. Run the relevant `mhd-ws` tests against that local package checkout.
+4. Switch back to the Git source once the package changes are pushed and pinned to a tag or commit.
