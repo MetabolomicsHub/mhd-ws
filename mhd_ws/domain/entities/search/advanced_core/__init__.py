@@ -23,6 +23,7 @@ from mhd_ws.domain.entities.search.advanced_core.predicates import (
     ParameterPairPredicate,
     PhraseMatchPredicate,
     Predicate,
+    PredicateKind,
     RangePredicate,
     TermMatchPredicate,
 )
@@ -95,6 +96,7 @@ __all__ = [
     "ParameterPairPredicate",
     "PhraseMatchPredicate",
     "Predicate",
+    "PredicateKind",
     "QueryPlan",
     "QueryStage",
     "RangePredicate",

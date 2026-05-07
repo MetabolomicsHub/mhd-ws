@@ -9,6 +9,7 @@ from mtbls_advanced_search.domain.predicates import (
     ParameterPairPredicate,
     PhraseMatchPredicate,
     Predicate,
+    PredicateKind,
     RangePredicate,
     TermMatchPredicate,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "ParameterPairPredicate",
     "PhraseMatchPredicate",
     "Predicate",
+    "PredicateKind",
     "RangePredicate",
     "TermMatchPredicate",
 ]
