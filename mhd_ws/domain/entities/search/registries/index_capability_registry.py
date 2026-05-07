@@ -1,5 +1,4 @@
-from mhd_ws.domain.entities.search.index_search_spec import ValueType
-from mhd_ws.domain.entities.search.registries.models import (
+from mhd_ws.domain.entities.search.advanced_core.registries import (
     FieldCapability,
     IndexCapabilities,
     IndexCapabilitiesRegistry,
@@ -8,6 +7,7 @@ from mhd_ws.domain.entities.search.registries.models import (
     NestedSpec,
     TextQueryStrategy,
 )
+from mhd_ws.domain.entities.search.advanced_core.spec import ValueType
 
 
 def build_index_capabilities(

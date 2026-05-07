@@ -31,11 +31,12 @@ from mhd_ws.domain.entities.search.index_search import (
     PageModel,
     SortModel,
 )
-from mhd_ws.domain.entities.search.index_search_spec import Target, ValueType
-from mhd_ws.domain.entities.search.registries.models import (
+from mhd_ws.domain.entities.search.advanced_core import (
     AllowedOperators,
     FieldDef,
     FieldRegistry,
+    Target,
+    ValueType,
 )
 from mhd_ws.domain.shared.model import MhdBaseModel
 from mhd_ws.presentation.rest_api.core.responses import APIResponse

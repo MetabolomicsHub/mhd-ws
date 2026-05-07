@@ -1,14 +1,17 @@
 import pytest
 
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
-from mhd_ws.domain.entities.search.dtos import (
-    ComparatorClauseDTO,
-    SearchRequestDTO,
-    TermClauseDTO,
-)
-from mhd_ws.domain.entities.search.index_search_spec import (
+from mhd_ws.domain.entities.search.advanced_core import (
     Target,
     ValueType,
+)
+from mhd_ws.domain.entities.search.dtos import (
+    CharacteristicPairClauseDTO,
+    ComparatorClauseDTO,
+    DescriptorClauseDTO,
+    ParameterPairClauseDTO,
+    SearchRequestDTO,
+    TermClauseDTO,
 )
 from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
 
@@ -103,6 +106,28 @@ class TestTermClauseResolution:
 
 
 class TestComparatorClauseResolution:
+    def test_valid_comparator_clause_resolves(
+        self, resolver: SearchSpecResolver
+    ) -> None:
+        dto = SearchRequestDTO(
+            clauses=[
+                ComparatorClauseDTO(
+                    field_id="samples_count",
+                    op="GTE",
+                    value=20,
+                )
+            ]
+        )
+        spec = resolver.resolve(dto)
+
+        clause = spec.clauses[0]
+        assert clause.kind == "compare"
+        assert clause.field.field_key == "dataset.samples.count"
+        assert clause.field.target == Target.DATASET
+        assert clause.field.value_type == ValueType.NUMBER
+        assert clause.comparator == "GTE"
+        assert clause.value == 20
+
     def test_disallowed_comparator_raises(self, resolver: SearchSpecResolver) -> None:
         dto = SearchRequestDTO(
             clauses=[
@@ -115,6 +140,74 @@ class TestComparatorClauseResolution:
         )
         with pytest.raises(ValueError, match="does not support comparator"):
             resolver.resolve(dto)
+
+
+class TestMhdSpecificClauseResolution:
+    def test_parameter_pair_clause_passes_through(
+        self, resolver: SearchSpecResolver
+    ) -> None:
+        dto = SearchRequestDTO(
+            clauses=[
+                ParameterPairClauseDTO(
+                    type_name="scan polarity",
+                    values=["positive", "negative"],
+                    op="AND",
+                    include_facet=True,
+                )
+            ]
+        )
+        spec = resolver.resolve(dto)
+
+        clause = spec.clauses[0]
+        assert clause.kind == "parameter_pair"
+        assert clause.type_name == "scan polarity"
+        assert clause.values == ["positive", "negative"]
+        assert clause.combine_values == "AND"
+        assert clause.include_facet is True
+
+    def test_descriptor_clause_passes_through(
+        self, resolver: SearchSpecResolver
+    ) -> None:
+        dto = SearchRequestDTO(
+            clauses=[
+                DescriptorClauseDTO(
+                    relationship="has_role",
+                    names=["lipid", "steroid"],
+                    op="OR",
+                    **{"not": True},
+                )
+            ]
+        )
+        spec = resolver.resolve(dto)
+
+        clause = spec.clauses[0]
+        assert clause.kind == "descriptor"
+        assert clause.relationship == "has_role"
+        assert clause.names == ["lipid", "steroid"]
+        assert clause.combine_names == "OR"
+        assert clause.negated is True
+
+    def test_characteristic_pair_clause_normalizes_type_name(
+        self, resolver: SearchSpecResolver
+    ) -> None:
+        dto = SearchRequestDTO(
+            clauses=[
+                CharacteristicPairClauseDTO(
+                    type_name="  Cell Line  ",
+                    values=["MCF7", "HeLa"],
+                    op="OR",
+                    include_facet=True,
+                )
+            ]
+        )
+        spec = resolver.resolve(dto)
+
+        clause = spec.clauses[0]
+        assert clause.kind == "characteristic_pair"
+        assert clause.type_name == "cell line"
+        assert clause.values == ["MCF7", "HeLa"]
+        assert clause.combine_values == "OR"
+        assert clause.include_facet is True
 
 
 class TestEdgeCases:

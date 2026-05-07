@@ -1,26 +1,28 @@
-"""Compatibility re-export for advanced-search spec models.
+from enum import Enum
 
-Prefer importing from ``mhd_ws.domain.entities.search.advanced_core`` for any
-new advanced-search code. This shim keeps older imports working during the
-Phase 1 extraction prep.
-"""
-
-from mhd_ws.domain.entities.search.advanced_core.spec import (
+from mtbls_advanced_search.domain.spec import (
     CharacteristicPairClauseSpec,
     ComparatorClauseSpec,
+    DATASET_TARGET,
     DescriptorClauseSpec,
     FieldClauseSpec,
     FieldRef,
     ParameterPairClauseSpec,
     SearchSpec,
-    Target,
     TermClauseSpec,
     ValueType,
 )
 
+
+class Target(str, Enum):
+    DATASET = DATASET_TARGET
+    METABOLITE = "METABOLITE"
+
+
 __all__ = [
     "CharacteristicPairClauseSpec",
     "ComparatorClauseSpec",
+    "DATASET_TARGET",
     "DescriptorClauseSpec",
     "FieldClauseSpec",
     "FieldRef",

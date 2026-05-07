@@ -1,9 +1,9 @@
-from mhd_ws.domain.entities.search.index_search_spec import Target, ValueType
-from mhd_ws.domain.entities.search.registries.models import (
+from mhd_ws.domain.entities.search.advanced_core.registries import (
     AllowedOperators,
     FieldDef,
     FieldRegistry,
 )
+from mhd_ws.domain.entities.search.advanced_core.spec import Target, ValueType
 
 FIELD_REGISTRY = FieldRegistry(
     fields=[

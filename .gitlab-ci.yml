@@ -11,6 +11,7 @@ variables:
   BASE_LAYER: bookworm-slim
   UV_LINK_MODE: copy
   CONFIG_DIR: "config-files"
+  ADVANCED_SEARCH_GITLAB_HOST: "gitlab.ebi.ac.uk"
 workflow:
   rules:
   - if: $CI_COMMIT_BRANCH == "test" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "development" || $CI_COMMIT_BRANCH == "staging"
@@ -29,6 +30,7 @@ lint:
   - mtbls
   - docker
   script:
+  - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${ADVANCED_SEARCH_GITLAB_HOST}/".insteadOf "https://${ADVANCED_SEARCH_GITLAB_HOST}/"
   - ls -al
   - echo "GITLAB_USER $GITLAB_USER"
   - echo "CI_BUILDS_DIR $CI_BUILDS_DIR"
@@ -73,9 +75,9 @@ build_image:
   - echo "${BUILD_NUMBER}" > build_number
   - echo  "$APP_VERSION" | xargs > app_version
   - echo "docker build -f Dockerfile.ws -t $IMAGE_NAME ."
-  - docker build -f Dockerfile.ws -t $IMAGE_NAME .
+  - docker build --build-arg GITLAB_CI_JOB_TOKEN="$CI_JOB_TOKEN" --build-arg GITLAB_HOST="$ADVANCED_SEARCH_GITLAB_HOST" -f Dockerfile.ws -t $IMAGE_NAME .
   - echo "docker build -f Dockerfile.ws -t $LATEST_IMAGE_NAME ."
-  - docker build -f Dockerfile.ws -t $LATEST_IMAGE_NAME .
+  - docker build --build-arg GITLAB_CI_JOB_TOKEN="$CI_JOB_TOKEN" --build-arg GITLAB_HOST="$ADVANCED_SEARCH_GITLAB_HOST" -f Dockerfile.ws -t $LATEST_IMAGE_NAME .
   - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
   - docker push $IMAGE_NAME
   - docker push $LATEST_IMAGE_NAME

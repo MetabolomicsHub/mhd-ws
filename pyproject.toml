@@ -30,6 +30,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "jsonpath-ng>=1.8.0",
     "mhd-model>=0.1.77",
+    "mtbls-advanced-search",
     "neo4j>=5.12.0",
     "psycopg>=3.3.3",
     "pydantic>=2.11.7",
@@ -48,6 +49,9 @@ dependencies = [
     "tornado>=6.5.5",
     "click>=8.0",
 ]
+
+[tool.uv.sources]
+mtbls-advanced-search = { git = "https://gitlab.ebi.ac.uk/mtbls/metabolomics-advanced-search-core.git", rev = "dd421a8a47184fae43ef9505b419c60896faee0c" }
 
 [project.scripts]
 mhd-cli = "mhd_ws.run.cli.main:mhd_tool"

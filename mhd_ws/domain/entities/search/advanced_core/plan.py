@@ -1,23 +1,20 @@
-"""Compatibility re-export for advanced-search plan/stage models.
-
-Prefer importing from ``mhd_ws.domain.entities.search.advanced_core`` for any
-new advanced-search code. This module remains as a transitional import shim.
-"""
-
-from mhd_ws.domain.entities.search.advanced_core.plan import (
-    DatasetHitsOutput,
-    DatasetIdConstraint,
-    DatasetIdSetOutput,
-    DatasetSearchStage,
+from mtbls_advanced_search.domain.plan import (
     IdCollectionStage,
     IdInSetConstraint,
     IdSetOutput,
-    MetaboliteIdStage,
     QueryPlan,
     QueryStage,
     SearchHitsOutput,
     SearchStage,
 )
+
+# Transitional aliases retained locally while mhd-ws callers move to the
+# neutral shared-package stage vocabulary.
+DatasetHitsOutput = SearchHitsOutput
+DatasetIdConstraint = IdInSetConstraint
+DatasetIdSetOutput = IdSetOutput
+DatasetSearchStage = SearchStage
+MetaboliteIdStage = IdCollectionStage
 
 __all__ = [
     "DatasetHitsOutput",

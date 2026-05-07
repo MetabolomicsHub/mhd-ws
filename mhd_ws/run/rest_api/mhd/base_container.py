@@ -3,8 +3,9 @@ from dependency_injector import containers, providers
 from mhd_ws.application.services.interfaces.async_task.conection import (
     PubSubConnection,
 )
-from mhd_ws.domain.domain_services.query_planner import QueryPlanner
+from mhd_ws.domain.domain_services.query_planner import PlannerConfig, QueryPlanner
 from mhd_ws.domain.domain_services.search_spec_resolver import SearchSpecResolver
+from mhd_ws.domain.entities.search.advanced_core.spec import Target
 from mhd_ws.domain.entities.search.registries.field_registry import FIELD_REGISTRY
 from mhd_ws.domain.entities.search.registries.index_capability_registry import (
     build_index_capabilities,
@@ -93,7 +94,17 @@ class GatewaysContainer(containers.DeclarativeContainer):
         field_registry=field_registry,
     )
 
-    query_planner = providers.Singleton(QueryPlanner)
+    planner_config = providers.Singleton(
+        PlannerConfig,
+        primary_target=Target.DATASET,
+        primary_index_key="ms-dataset-index",
+        join_target=Target.METABOLITE,
+        join_index_key="metabolite-index",
+        query_text_field_key="dataset.search_text",
+        join_output_field_key="dataset_id",
+    )
+
+    query_planner = providers.Singleton(QueryPlanner, config=planner_config)
 
     advanced_search_gateway = providers.Singleton(
         AdvancedSearchGateway,

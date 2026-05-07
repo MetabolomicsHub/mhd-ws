@@ -1,4 +1,4 @@
-from mhd_ws.domain.entities.search.registries.models import (
+from mhd_ws.domain.entities.search.advanced_core.registries import (
     AllowedOperators,
     FieldCapability,
     FieldDef,
@@ -8,7 +8,7 @@ from mhd_ws.domain.entities.search.registries.models import (
     JoinContract,
     NestedSpec,
 )
-from mhd_ws.domain.entities.search.types import (
+from mhd_ws.domain.entities.search.advanced_core.types import (
     ComparatorOp,
     InterFieldCombiner,
     IntraFieldCombiner,

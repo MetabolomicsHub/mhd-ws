@@ -2,6 +2,9 @@ FROM python:3.13-slim AS builder
 
 LABEL maintainer="MetaboLights (metabolights-help @ ebi.ac.uk)"
 
+ARG GITLAB_CI_JOB_TOKEN
+ARG GITLAB_HOST=gitlab.ebi.ac.uk
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN apt-get update && apt-get install -y \
@@ -13,7 +16,9 @@ COPY pyproject.toml pyproject.toml
 COPY uv.lock uv.lock
 COPY README.md README.md
 COPY mhd_ws mhd_ws
-RUN uv sync --locked --group=dev
+RUN git config --global url."https://gitlab-ci-token:${GITLAB_CI_JOB_TOKEN}@${GITLAB_HOST}/".insteadOf "https://${GITLAB_HOST}/" \
+    && uv sync --locked --group=dev \
+    && rm -f /root/.gitconfig
 ENV PYTHONPATH=/app
 
 COPY . .

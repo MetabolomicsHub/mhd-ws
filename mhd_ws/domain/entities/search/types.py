@@ -1,9 +1,20 @@
-from __future__ import annotations
+"""Compatibility re-export for advanced-search core types.
 
-from typing import Literal
+Prefer importing from ``mhd_ws.domain.entities.search.advanced_core`` for any
+new advanced-search code. This module remains only to avoid a flag-day import
+rewrite while the extraction boundary settles.
+"""
 
-InterFieldCombiner = Literal["AND", "OR"]
-IntraFieldCombiner = Literal["AND", "OR"]
-MatchMode = Literal["AUTO", "EXACT", "PHRASE"]
+from mhd_ws.domain.entities.search.advanced_core.types import (
+    ComparatorOp,
+    InterFieldCombiner,
+    IntraFieldCombiner,
+    MatchMode,
+)
 
-ComparatorOp = Literal["GT", "GTE", "LT", "LTE", "EQ"]
+__all__ = [
+    "ComparatorOp",
+    "InterFieldCombiner",
+    "IntraFieldCombiner",
+    "MatchMode",
+]
